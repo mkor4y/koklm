@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 import torch
 
@@ -43,12 +44,26 @@ def meta_dan_hf_permutasyon(w: torch.Tensor, n_kafa: int) -> torch.Tensor:
 # ---------------------------------------------------------------------------
 # Hugging Face
 # ---------------------------------------------------------------------------
-def hf_config_cevir(hf: dict, isim: str = "hf") -> ModelConfig:
-    rs = hf.get("rope_scaling")
+def _rope_ayarlari(hf: dict) -> tuple[float, Optional[dict]]:
+    """
+    RoPE θ ve ölçekleme ayarlarını oku. İki config biçimi var:
+      eski (Hub'daki Llama 3 dosyaları):  "rope_theta": ..., "rope_scaling": {...}
+      yeni (transformers 5):              "rope_parameters": {"rope_theta": ..., "rope_type": ...}
+    """
+    rp = hf.get("rope_parameters") or {}
+    rs = hf.get("rope_scaling") or rp
+    theta = hf.get("rope_theta") or rp.get("rope_theta") or 10_000.0
     scaling = None
     if rs and rs.get("rope_type", rs.get("type")) == "llama3":
         scaling = {k: rs[k] for k in ("factor", "low_freq_factor", "high_freq_factor",
                                       "original_max_position_embeddings")}
+    elif rs and rs.get("rope_type", rs.get("type")) not in (None, "default"):
+        raise NotImplementedError(f"RoPE türü desteklenmiyor: {rs}")
+    return float(theta), scaling
+
+
+def hf_config_cevir(hf: dict, isim: str = "hf") -> ModelConfig:
+    theta, scaling = _rope_ayarlari(hf)
     head_dim = hf.get("head_dim") or hf["hidden_size"] // hf["num_attention_heads"]
     assert head_dim * hf["num_attention_heads"] == hf["hidden_size"], \
         "KökLM dh = d / H varsayar"
@@ -61,7 +76,7 @@ def hf_config_cevir(hf: dict, isim: str = "hf") -> ModelConfig:
         n_kv_heads=hf.get("num_key_value_heads", hf["num_attention_heads"]),
         ffn_dim=hf["intermediate_size"],
         norm_eps=hf.get("rms_norm_eps", 1e-5),
-        rope_theta=hf.get("rope_theta", 10_000.0),
+        rope_theta=theta,
         rope_scaling=scaling,
         max_seq_len=hf.get("max_position_embeddings", 8192),
         tied_embeddings=hf.get("tie_word_embeddings", False),

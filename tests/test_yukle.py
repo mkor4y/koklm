@@ -14,6 +14,17 @@ from koklm.yukle import (  # noqa: E402
     meta_dan_hf_permutasyon,
 )
 
+OLCEK = {"rope_type": "llama3", "factor": 8.0, "low_freq_factor": 1.0,
+         "high_freq_factor": 4.0, "original_max_position_embeddings": 32}
+
+
+def test_rope_ayarlari_iki_bicim():
+    from koklm.yukle import _rope_ayarlari
+    eski = {"rope_theta": 500000.0, "rope_scaling": dict(OLCEK)}
+    yeni = {"rope_parameters": dict(OLCEK, rope_theta=500000.0)}
+    assert _rope_ayarlari(eski) == _rope_ayarlari(yeni)
+    assert _rope_ayarlari(eski)[1]["factor"] == 8.0
+
 
 def test_permutasyon_gidis_donus():
     w = torch.randn(4 * 16, 64)
@@ -29,9 +40,6 @@ def test_permutasyon_satir_eslemesi():
 
 
 transformers = pytest.importorskip("transformers")
-
-OLCEK = {"rope_type": "llama3", "factor": 8.0, "low_freq_factor": 1.0,
-         "high_freq_factor": 4.0, "original_max_position_embeddings": 32}
 
 
 def _hf_model(tied, scaling):
@@ -54,6 +62,7 @@ def _hf_model(tied, scaling):
 def test_hf_llama_ile_ayni_logit(tied, scaling):
     hf = _hf_model(tied, scaling)
     cfg = hf_config_cevir(hf.config.to_dict())
+    assert (cfg.rope_scaling is not None) == (scaling is not None)
     model = Transformer(cfg).eval()
     model.load_state_dict(hf_state_dict_cevir(hf.state_dict(), cfg))
     x = torch.randint(0, 256, (2, 40))

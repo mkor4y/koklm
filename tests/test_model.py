@@ -25,9 +25,10 @@ def test_milyar_parametre_meta_cihazda(isim, beklenen):
 
 def test_cikis_sekli_ve_kayip(kucuk):
     x = torch.randint(0, 256, (2, 16))
-    logits, loss = kucuk(x, x)
+    y = torch.randint(0, 256, (2, 16))      # girdiden bağımsız hedefler
+    logits, loss = kucuk(x, y)
     assert logits.shape == (2, 16, 256)
-    # Rastgele başlangıçta kayıp ≈ ln(V)
+    # Rastgele başlangıçta her token ~eşit olasılıklı -> kayıp ≈ ln(V)
     assert abs(loss.item() - math.log(256)) < 0.5
 
 
@@ -103,10 +104,14 @@ def test_tied_agirlik_paylasimi(kucuk):
 def test_llama3_rope_olcekleme():
     s = {"factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0,
          "original_max_position_embeddings": 32}
-    c0, _ = rope_tablosu(16, 4, 10_000.0)
-    c1, _ = rope_tablosu(16, 4, 10_000.0, s)
-    assert torch.allclose(c0[:, 0], c1[:, 0])           # yüksek frekans aynı kalır
-    assert not torch.allclose(c0[:, -1], c1[:, -1])     # düşük frekans ölçeklenir
+    _, s0 = rope_tablosu(16, 64, 10_000.0)
+    _, s1 = rope_tablosu(16, 64, 10_000.0, s)
+    assert torch.allclose(s0[:, 0], s1[:, 0])           # yüksek frekans aynı kalır
+    assert not torch.allclose(s0[:, -1], s1[:, -1])     # düşük frekans ölçeklenir
+    # En düşük frekans tam olarak factor kadar yavaşlar: sin(m·ω/8)
+    w = 10_000.0 ** (-14 / 16)
+    m = torch.arange(64, dtype=torch.float32)
+    assert torch.allclose(s1[:, -1], torch.sin(m * w / 8), atol=1e-6)
 
 
 def test_rope_yenile_fp32(kucuk):
