@@ -36,3 +36,28 @@ jobs:
         run: pytest -v
       - name: Parametre raporu
         run: python scripts/parametre_say.py 1B 8B
+
+  smoke:
+    name: uçtan uca (BPE → veri → eğitim → üretim)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -e .
+      - name: Örnek metin
+        run: |
+          mkdir -p metinler
+          python -c "print('Bir varmış bir yokmuş, evvel zaman içinde kalbur saman içinde. Develer tellal iken, pireler berber iken. ' * 400)" > metinler/masal.txt
+      - run: python scripts/train_bpe.py --girdi metinler --vocab_size 300 --cikti tokenizer.json
+      - run: python scripts/prepare_data.py --girdi metinler --cikti data/ornek --tokenizer bpe:tokenizer.json
+      - run: >
+          python scripts/train.py --model kucuk --data data/ornek --seq_len 32 --batch_size 4
+          --grad_accum 2 --max_steps 30 --warmup 5 --eval_interval 10 --eval_iters 2
+          --log_interval 5 --grad_checkpoint
+      - run: python scripts/train.py --model kucuk --data data/ornek --seq_len 32 --batch_size 4 --max_steps 35 --resume --eval_interval 10 --eval_iters 2
+      - run: python scripts/generate.py --ckpt checkpoints/en_iyi.pt --prompt "Bir varmış" --max_new_tokens 20 --n 2
+      - run: test -s checkpoints/log.jsonl && tail -3 checkpoints/log.jsonl
