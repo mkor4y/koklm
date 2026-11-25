@@ -20,6 +20,10 @@ from torch.utils.checkpoint import checkpoint
 
 from .config import ModelConfig
 
+# torch>=2.5: SDPA, GQA'yı K/V'yi kopyalamadan kendisi yapabilir
+_SURUM = tuple(int(p) for p in torch.__version__.split("+")[0].split(".")[:2])
+_SDPA_GQA = _SURUM >= (2, 5)
+
 
 # ---------------------------------------------------------------------------
 # RMSNorm
@@ -138,10 +142,15 @@ class Attention(nn.Module):
         # (B, kafa, T, dh)
         q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
 
-        # GQA: her K/V kafasını n_rep kez çoğalt -> H kafaya eşitle
+        # GQA: her K/V kafasını n_rep Q kafası paylaşır.
+        # Yeni torch'ta SDPA bunu kopyasız yapar; eskisinde K/V'yi açıkça çoğalt.
+        gqa = {}
         if self.n_rep > 1:
-            k = k.repeat_interleave(self.n_rep, dim=1)
-            v = v.repeat_interleave(self.n_rep, dim=1)
+            if _SDPA_GQA:
+                gqa = {"enable_gqa": True}
+            else:
+                k = k.repeat_interleave(self.n_rep, dim=1)
+                v = v.repeat_interleave(self.n_rep, dim=1)
 
         # Nedensel maske
         if start_pos == 0:
@@ -155,7 +164,7 @@ class Attention(nn.Module):
 
         o = F.scaled_dot_product_attention(
             q, k, v, attn_mask=mask, is_causal=causal,
-            dropout_p=self.dropout if self.training else 0.0,
+            dropout_p=self.dropout if self.training else 0.0, **gqa,
         )
         o = o.transpose(1, 2).contiguous().view(B, T, self.n_heads * self.head_dim)
         return self.wo(o)
@@ -203,9 +212,9 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(TransformerBlock(cfg) for _ in range(cfg.n_layers))
         self.norm = RMSNorm(cfg.dim, cfg.norm_eps)
         self.output = nn.Linear(cfg.dim, cfg.vocab_size, bias=False)
-        if cfg.tied_embeddings:
-            self.output.weight = self.tok_embeddings.weight
+        self.agirlik_bagla()
 
+        # RoPE tabloları: kaydedilmez (persistent=False), her zaman formülden üretilir
         cos, sin = rope_tablosu(cfg.head_dim, cfg.max_seq_len, cfg.rope_theta, cfg.rope_scaling)
         self.register_buffer("rope_cos", cos, persistent=False)
         self.register_buffer("rope_sin", sin, persistent=False)
@@ -221,16 +230,34 @@ class Transformer(nn.Module):
         if isinstance(m, (nn.Linear, nn.Embedding)):
             nn.init.normal_(m.weight, mean=0.0, std=0.02)
 
+    def agirlik_bagla(self):
+        """Tied embeddings: çıkış katmanı = embedding tablosu (aynı tensör)."""
+        if self.cfg.tied_embeddings:
+            self.output.weight = self.tok_embeddings.weight
+
+    def rope_yenile(self):
+        """
+        RoPE tablolarını modelin cihazında fp32 olarak yeniden hesapla.
+        model.to(bfloat16) sonrası veya meta cihazdan yüklemeden sonra çağır:
+        büyük konumlarda (m·ω) açıların bf16'da hassasiyeti kaybolmasın.
+        """
+        cfg = self.cfg
+        cos, sin = rope_tablosu(cfg.head_dim, cfg.max_seq_len, cfg.rope_theta, cfg.rope_scaling)
+        dev = self.tok_embeddings.weight.device
+        self.rope_cos, self.rope_sin = cos.to(dev), sin.to(dev)
+        return self
+
     def parametre_sayisi(self) -> int:
         # parameters() paylaşılan (tied) ağırlığı bir kez sayar
         return sum(p.numel() for p in self.parameters())
 
     def forward(self, tokens: torch.Tensor, targets: Optional[torch.Tensor] = None,
-                start_pos: int = 0):
+                start_pos: int = 0, sadece_son: bool = False):
         """
-        tokens:  (B, T) long
-        targets: (B, T) long, -100 = yok say  ->  çapraz entropi kaybı
-        Dönüş: (logits (B,T,V) fp32, loss veya None)
+        tokens:     (B, T) long
+        targets:    (B, T) long, -100 = yok say  ->  çapraz entropi kaybı
+        sadece_son: sadece son konumun logit'ini hesapla (üretimde V=128K için büyük tasarruf)
+        Dönüş: (logits (B,T,V) veya (B,1,V) fp32, loss veya None)
         """
         B, T = tokens.shape
         assert start_pos + T <= self.cfg.max_seq_len, "dizi max_seq_len'i aşıyor"
@@ -246,6 +273,8 @@ class Transformer(nn.Module):
         h = self.norm(h)
 
         if targets is None:
+            if sadece_son:
+                h = h[:, -1:]
             return self.output(h).float(), None
         logits = self.output(h).float()
         loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1),
@@ -275,7 +304,7 @@ class Transformer(nn.Module):
         self.cache_kur(B, toplam)
         try:
             tokens = prompt
-            logits, _ = self(prompt, start_pos=0)
+            logits, _ = self(prompt, start_pos=0, sadece_son=True)
             bitti = torch.zeros(B, dtype=torch.bool, device=prompt.device)
             for pos in range(T0, toplam):
                 nxt = ornekle(logits[:, -1], temperature, top_p)
@@ -286,7 +315,7 @@ class Transformer(nn.Module):
                 if eos_id is not None and bitti.all():
                     break
                 if pos + 1 < toplam:
-                    logits, _ = self(nxt[:, None], start_pos=pos)
+                    logits, _ = self(nxt[:, None], start_pos=pos, sadece_son=True)
             return tokens
         finally:
             self.cache_sil()

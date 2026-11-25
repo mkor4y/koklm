@@ -1,8 +1,10 @@
 """
 Metin dosyalarını token'lara çevirip eğitim için ikili dosyalara yazar.
 
-    python prepare_data.py --girdi metinler/ --cikti data/tr --tokenizer byte
-    python prepare_data.py --girdi korpus.txt --cikti data/tr --tokenizer hf:meta-llama/Llama-3.2-1B
+    python scripts/prepare_data.py --girdi metinler/ --cikti data/tr --tokenizer byte
+    python scripts/prepare_data.py --girdi metinler/ --cikti data/tr --tokenizer bpe:tokenizer.json
+    python scripts/prepare_data.py --girdi korpus.txt --cikti data/tr \
+        --tokenizer hf:meta-llama/Llama-3.2-1B
 
 Çıktı:
     data/tr/train.bin, data/tr/val.bin   (uint32 token dizisi, np.memmap ile okunur)
@@ -14,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tokenizer import tokenizer_al
+from koklm.tokenizer import tokenizer_al
 
 
 def dosyalari_bul(girdi: Path):

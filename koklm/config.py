@@ -6,7 +6,7 @@ Mimari, Meta'nın açık kaynak Llama 3 ailesinden esinlenmiştir:
   - "8B"    -> Llama 3 8B ile aynı boyutlar   (~8.03 milyar parametre)
   - "kucuk" -> tek GPU / CPU'da dakikalar içinde denenebilecek minik model
 """
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 
@@ -26,13 +26,14 @@ class ModelConfig:
     max_seq_len: int = 8192
     tied_embeddings: bool = False         # çıkış katmanı = embedding^T
     dropout: float = 0.0                  # Llama 0 kullanır
-    ffn_dim: int = field(init=False)
+    ffn_dim: Optional[int] = None         # None -> Llama formülüyle hesaplanır
 
     def __post_init__(self):
         assert self.dim % self.n_heads == 0, "dim, kafa sayısına bölünmeli"
         assert self.n_heads % self.n_kv_heads == 0, "H, Hkv'ye bölünmeli"
         assert self.head_dim % 2 == 0, "RoPE için kafa boyutu çift olmalı"
-        self.ffn_dim = ffn_boyutu(self.dim, self.multiple_of, self.ffn_dim_multiplier)
+        if self.ffn_dim is None:
+            self.ffn_dim = ffn_boyutu(self.dim, self.multiple_of, self.ffn_dim_multiplier)
 
     @property
     def head_dim(self) -> int:       # dh = d / H
@@ -47,14 +48,10 @@ class ModelConfig:
         return self.n_heads // self.n_kv_heads
 
     def to_dict(self) -> dict:
-        d = asdict(self)
-        d.pop("ffn_dim")             # türetilmiş alan, tekrar hesaplanır
-        return d
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "ModelConfig":
-        d = dict(d)
-        d.pop("ffn_dim", None)
         return cls(**d)
 
 
@@ -107,4 +104,7 @@ def ayar_al(isim: str, **degisiklikler) -> ModelConfig:
     """Hazır ayarı al, istenen alanları değiştir: ayar_al("1B", max_seq_len=4096)"""
     d = AYARLAR[isim].to_dict()
     d.update(degisiklikler)
+    if {"dim", "multiple_of", "ffn_dim_multiplier"} & degisiklikler.keys() \
+            and "ffn_dim" not in degisiklikler:
+        d["ffn_dim"] = None          # boyut değiştiyse FFN'i yeniden hesapla
     return ModelConfig.from_dict(d)

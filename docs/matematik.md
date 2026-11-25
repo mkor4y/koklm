@@ -185,7 +185,7 @@ Her iki sayı da Meta'nın yayımladığı değerlerle birebir aynı (`test_bili
 
 ---
 
-## 8. Eğitimin matematiği (`train.py`)
+## 8. Eğitimin matematiği (`scripts/train.py`)
 
 **Kayıp:** `ℒ = −(1/BT) Σ log p(x_{t+1} | x_{≤t})`. Rastgele başlangıçta her token eşit
 olasılıklı → `ℒ₀ ≈ ln V` (byte modeli: ln 256 ≈ 5.55). Perplexity = `e^ℒ`.
@@ -218,10 +218,46 @@ geçişte yeniden hesaplanır. Bellek `O(L)` blok çıktısına iner, hesap ~%33
 
 ---
 
-## 9. Sonraki adımlar
+## 9. Tokenizer: Byte Pair Encoding (`koklm/bpe.py`)
 
-1. **Meta ağırlıklarını yükleme:** Llama 3.2 1B'nin gerçek ağırlıklarını bu mimariye
-   yükleyip birebir aynı çıktıyı aldığımızı doğrulamak (en güçlü test).
-2. **Tokenizer:** BPE algoritmasını sıfırdan yazmak.
-3. **Türkçe ön-eğitim:** `kucuk` → ~100M → 1B ölçek deneyleri, ölçekleme yasaları.
-4. **İnce ayar:** sohbet formatı (SFT), LoRA.
+Model sayılarla çalışır; metni sayılara çeviren şey tokenizer'dır.
+
+1. Başlangıç sözlüğü 256 bayt → her UTF-8 metin temsil edilebilir, "bilinmeyen token" yok.
+2. Metni ön-parçalara böl (kelime + önündeki boşluk, sayı, noktalama).
+3. Tekrarla: en sık komşu çifti `(a, b)` bul, yeni token `n = 256 + k` ata, her yerde birleştir.
+4. Kodlarken birleştirmeleri öğrenilme sırasına göre uygula.
+
+Her birleştirme diziyi kısaltır: token başına düşen bayt artar → aynı bağlam penceresine
+daha çok metin sığar, ama `V` büyüdükçe embedding (`V·d`) ve çıkış katmanı büyür.
+Bu, sözlük boyutunun temel takasıdır. Llama 3: `V = 128 256`.
+
+---
+
+## 10. Gerçek Llama ağırlıkları ve RoPE permütasyonu (`koklm/yukle.py`)
+
+Meta'nın orijinal kodu RoPE çiftlerini `(x_{2i}, x_{2i+1})` olarak alır; Hugging Face
+`(x_i, x_{i+dh/2})` ("rotate_half"). HF dönüştürücüsü bunu dengelemek için her kafada
+`W_q` ve `W_k` satırlarını yeniden sıralar:
+
+```
+Meta satırı 2i + j   →   HF satırı j·(dh/2) + i,      j ∈ {0, 1}
+```
+
+Bu bir permütasyon matrisi `P` ile `W_q^HF = P W_q`, `W_k^HF = P W_k` demektir. `P` dik
+(`PᵀP = I`) ve aynı anda hem Q'ya hem K'ya uygulandığından
+
+```
+(P q)ᵀ R'(n−m) (P k) = qᵀ R(n−m) k        (R' = P R Pᵀ: rotate_half düzeninde dönme)
+```
+
+yani attention skorları değişmez. KökLM, `Pᵀ`'yi uygulayarak Meta düzenine geri döner ve
+Hugging Face'in Llama'sıyla **aynı logit'leri** üretir (`tests/test_yukle.py`).
+
+---
+
+## 11. Sonraki adımlar
+
+1. **FSDP:** 8B ölçeğinde parametre/optimizer durumunu GPU'lara bölmek.
+2. **Türkçe ön-eğitim:** `kucuk` → ~100M → 1B ölçek deneyleri, ölçekleme yasaları.
+3. **İnce ayar:** sohbet formatı (SFT), LoRA.
+4. **Nicemleme:** int8/int4 çıkarım.

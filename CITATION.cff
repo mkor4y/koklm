@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "Bu yazılımı kullanırsanız lütfen aşağıdaki şekilde atıf yapın."
+title: "KökLM: Milyar parametrelik LLM'leri kökünden çözmek için sıfırdan yazılmış dil modeli"
+authors:
+  - family-names: "KÖK"
+    given-names: "Mustafa Koray"
+    affiliation: "Van Yüzüncü Yıl Üniversitesi, Bilgisayar Mühendisliği"
+version: 0.2.0
+date-released: 2026-11-26
+license: MIT
+repository-code: "https://github.com/mkor4y/koklm"
+keywords:
+  - large language models
+  - transformer
+  - llama
+  - pytorch

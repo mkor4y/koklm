@@ -1,5 +1,0 @@
-torch>=2.3
-numpy
-pytest
-# isteğe bağlı: Llama 3 tokenizer'ı için
-# transformers

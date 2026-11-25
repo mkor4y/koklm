@@ -1,10 +1,11 @@
 """
-Tokenizer'lar.
+Tokenizer seçimi.
 
-  byte : her UTF-8 baytı bir token (V=256). Hiçbir şey indirmeden çalışır -> "kucuk" model.
-  hf:<isim> : Hugging Face tokenizer, örn. "hf:meta-llama/Llama-3.2-1B" (V=128 256)
-              -> `pip install transformers` ve model sayfasında erişim izni gerekir.
+  byte            : her UTF-8 baytı bir token (V=256). Hiçbir şey indirmeden çalışır.
+  bpe:<dosya>     : KökLM'in sıfırdan BPE'si (scripts/train_bpe.py ile eğitilir).
+  hf:<model>      : Hugging Face tokenizer, örn. "hf:meta-llama/Llama-3.2-1B" (V=128 256).
 """
+from .bpe import BPETokenizer
 
 
 class ByteTokenizer:
@@ -24,17 +25,20 @@ class HFTokenizer:
         self.tok = AutoTokenizer.from_pretrained(isim)
         self.vocab_size = len(self.tok)
         self.eos_id = self.tok.eos_token_id
+        self.bos_id = self.tok.bos_token_id
 
     def encode(self, metin: str) -> list[int]:
         return self.tok.encode(metin, add_special_tokens=False)
 
     def decode(self, ids) -> str:
-        return self.tok.decode(list(ids))
+        return self.tok.decode(list(ids), skip_special_tokens=True)
 
 
 def tokenizer_al(isim: str):
     if isim == "byte":
         return ByteTokenizer()
+    if isim.startswith("bpe:"):
+        return BPETokenizer.yukle(isim[4:])
     if isim.startswith("hf:"):
         return HFTokenizer(isim[3:])
-    raise ValueError(f"Bilinmeyen tokenizer: {isim}  (byte | hf:<model>)")
+    raise ValueError(f"Bilinmeyen tokenizer: {isim}  (byte | bpe:<dosya> | hf:<model>)")

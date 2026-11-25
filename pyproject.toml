@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "koklm"
+version = "0.2.0"
+description = "Milyar parametrelik LLM'leri kökünden çözmek için sıfırdan yazılmış, Llama 3 tarzı dil modeli"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Mustafa Koray KÖK" }]
+requires-python = ">=3.10"
+keywords = ["llm", "transformer", "llama", "pytorch", "from-scratch", "deep-learning"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["torch>=2.3", "numpy"]
+
+[project.optional-dependencies]
+hf = ["transformers>=4.45", "safetensors", "huggingface_hub"]
+dev = ["pytest", "ruff"]
+
+[project.urls]
+Repository = "https://github.com/mkor4y/koklm"
+
+[tool.setuptools.packages.find]
+include = ["koklm*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E741",   # matematik gösterimi: l, I gibi tek harfli adlar
+    "B905",   # zip(strict=...) — kısa çiftleme döngülerinde gereksiz
+    "UP007",  # Optional[...] okunabilirlik için korunuyor
+    "UP045",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["koklm"]

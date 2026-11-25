@@ -2,9 +2,9 @@
 Eğitim döngüsü.
 
 Tek GPU:
-    python train.py --model kucuk --data data/tr
+    python scripts/train.py --model kucuk --data data/tr
 Çok GPU (aynı makine, 8 GPU):
-    torchrun --standalone --nproc_per_node=8 train.py --model 1B --data data/tr --compile
+    torchrun --standalone --nproc_per_node=8 scripts/train.py --model 1B --data data/tr --compile
 
 İçerik: AdamW, ısınma + kosinüs öğrenme oranı, bf16 autocast, gradyan biriktirme,
 gradyan kırpma, gradient checkpointing, torch.compile, DDP, checkpoint kaydet/devam et.
@@ -22,7 +22,7 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from model import ModelConfig, ayar_al, Transformer
+from koklm import ModelConfig, Transformer, ayar_al
 
 
 def argumanlar():
@@ -66,13 +66,19 @@ class Veri:
         meta = json.loads((Path(klasor) / "meta.json").read_text())
         self.meta, self.klasor = meta, Path(klasor)
         self.seq_len, self.batch_size, self.device = seq_len, batch_size, device
+        for bolum in ("train", "val"):
+            n = meta[f"{bolum}_tokens"]
+            if n <= seq_len + 1:
+                raise ValueError(f"{bolum} verisi {n} token; seq_len={seq_len} için çok az. "
+                                 "Daha fazla metin ekleyin veya --seq_len'i küçültün.")
 
     def batch(self, bolum: str):
         # Her seferinde yeniden memmap: uzun eğitimlerde bellek sızıntısını önler
         data = np.memmap(self.klasor / f"{bolum}.bin", dtype=np.uint32, mode="r")
         ix = np.random.randint(0, len(data) - self.seq_len - 1, self.batch_size)
-        x = torch.from_numpy(np.stack([data[i:i + self.seq_len] for i in ix]).astype(np.int64))
-        y = torch.from_numpy(np.stack([data[i + 1:i + 1 + self.seq_len] for i in ix]).astype(np.int64))
+        pencere = np.stack([data[i:i + self.seq_len + 1] for i in ix]).astype(np.int64)
+        x = torch.from_numpy(np.ascontiguousarray(pencere[:, :-1]))
+        y = torch.from_numpy(np.ascontiguousarray(pencere[:, 1:]))
         if self.device.startswith("cuda"):
             return (x.pin_memory().to(self.device, non_blocking=True),
                     y.pin_memory().to(self.device, non_blocking=True))
@@ -123,7 +129,7 @@ def main():
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
 
-    ptdtype = {"float32": torch.float32, "bfloat16": torch.bfloat16, "float16": torch.float16}[a.dtype]
+    ptdtype = getattr(torch, a.dtype)
     ctx = nullcontext() if device_type == "cpu" else torch.autocast(device_type, dtype=ptdtype)
     scaler = torch.amp.GradScaler(enabled=(a.dtype == "float16"))
 
@@ -138,7 +144,12 @@ def main():
     if ckpt is not None:
         cfg = ModelConfig.from_dict(ckpt["config"])
     else:
-        cfg = ayar_al(a.model, max_seq_len=max(a.seq_len, 1))
+        degisiklik = {"max_seq_len": a.seq_len}
+        tok_V = veri.meta["vocab_size"]
+        if tok_V != ayar_al(a.model).vocab_size:
+            # Sözlüğü tokenizer'a uydur; 64'ün katı GPU matris çarpımlarında daha hızlı
+            degisiklik["vocab_size"] = 64 * ((tok_V + 63) // 64)
+        cfg = ayar_al(a.model, **degisiklik)
     assert veri.meta["vocab_size"] <= cfg.vocab_size, \
         f"tokenizer sözlüğü ({veri.meta['vocab_size']}) modelden büyük ({cfg.vocab_size})"
 
@@ -176,6 +187,12 @@ def main():
         model.train()
         return sonuc
 
+    log_dosyasi = out_dir / "log.jsonl"
+
+    def logla(**kayit):
+        with open(log_dosyasi, "a", encoding="utf-8") as f:
+            f.write(json.dumps(kayit) + "\n")
+
     def kaydet(yol: Path):
         torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                     "config": cfg.to_dict(), "adim": adim, "en_iyi_val": en_iyi_val,
@@ -193,6 +210,7 @@ def main():
             k = degerlendir()
             print(f"[değerlendirme] adım {adim}: train {k['train']:.4f}  val {k['val']:.4f}  "
                   f"(perplexity {math.exp(k['val']):.1f})")
+            logla(adim=adim, train_kayip=k["train"], val_kayip=k["val"])
             if k["val"] < en_iyi_val:
                 en_iyi_val = k["val"]
                 kaydet(out_dir / "en_iyi.pt")
@@ -219,6 +237,7 @@ def main():
             t0 = time.time()
             tok_s = a.batch_size * a.seq_len * a.grad_accum * world * a.log_interval / max(dt, 1e-9)
             gn = f"  |g| {norm.item():.2f}" if a.grad_clip > 0 else ""
+            logla(adim=adim, kayip=loss.item() * a.grad_accum, lr=lr, token_s=tok_s)
             print(f"adım {adim:6d}  kayıp {loss.item() * a.grad_accum:.4f}  lr {lr:.2e}{gn}  "
                   f"{tok_s:,.0f} token/s")
         adim += 1

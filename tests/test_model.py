@@ -1,11 +1,12 @@
-"""
-Çalıştır:  pytest -q
-"""
-import pytest
-import torch
+"""Model testleri (PyTorch gerekir)."""
+import math
 
-from model import AYARLAR, ayar_al, Transformer, rope_tablosu, rope_uygula
-from parametre_say import parametre_dokumu
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from koklm import AYARLAR, Transformer, ayar_al, rope_tablosu, rope_uygula  # noqa: E402
+from koklm.analiz import toplam_parametre  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -14,17 +15,12 @@ def kucuk():
     return Transformer(AYARLAR["kucuk"]).eval()
 
 
-def test_ffn_boyutlari():
-    assert AYARLAR["1B"].ffn_dim == 8192
-    assert AYARLAR["8B"].ffn_dim == 14336
-
-
 @pytest.mark.parametrize("isim,beklenen", [("1B", 1_235_814_400), ("8B", 8_030_261_248)])
 def test_milyar_parametre_meta_cihazda(isim, beklenen):
     # "meta" cihaz: tensörlerin sadece şekli var, bellek ayrılmaz -> 8B bile anında
     with torch.device("meta"):
         model = Transformer(AYARLAR[isim])
-    assert model.parametre_sayisi() == beklenen == parametre_dokumu(AYARLAR[isim])[3]
+    assert model.parametre_sayisi() == beklenen == toplam_parametre(AYARLAR[isim])
 
 
 def test_cikis_sekli_ve_kayip(kucuk):
@@ -32,7 +28,7 @@ def test_cikis_sekli_ve_kayip(kucuk):
     logits, loss = kucuk(x, x)
     assert logits.shape == (2, 16, 256)
     # Rastgele başlangıçta kayıp ≈ ln(V)
-    assert abs(loss.item() - torch.log(torch.tensor(256.0)).item()) < 0.5
+    assert abs(loss.item() - math.log(256)) < 0.5
 
 
 def test_nedensellik(kucuk):
@@ -92,7 +88,29 @@ def test_bir_egitim_adimi_kaybi_dusurur():
     assert l.item() < l0.item()
 
 
-def test_config_gidis_donus():
-    cfg = AYARLAR["1B"]
-    from model import ModelConfig
-    assert ModelConfig.from_dict(cfg.to_dict()) == cfg
+def test_sadece_son_logit(kucuk):
+    x = torch.randint(0, 256, (2, 9))
+    tam, _ = kucuk(x)
+    son, _ = kucuk(x, sadece_son=True)
+    assert son.shape == (2, 1, 256)
+    assert torch.allclose(tam[:, -1:], son, atol=1e-5)
+
+
+def test_tied_agirlik_paylasimi(kucuk):
+    assert kucuk.output.weight is kucuk.tok_embeddings.weight
+
+
+def test_llama3_rope_olcekleme():
+    s = {"factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0,
+         "original_max_position_embeddings": 32}
+    c0, _ = rope_tablosu(16, 4, 10_000.0)
+    c1, _ = rope_tablosu(16, 4, 10_000.0, s)
+    assert torch.allclose(c0[:, 0], c1[:, 0])           # yüksek frekans aynı kalır
+    assert not torch.allclose(c0[:, -1], c1[:, -1])     # düşük frekans ölçeklenir
+
+
+def test_rope_yenile_fp32(kucuk):
+    m = Transformer(AYARLAR["kucuk"]).to(torch.bfloat16)
+    assert m.rope_cos.dtype == torch.bfloat16
+    m.rope_yenile()
+    assert m.rope_cos.dtype == torch.float32
