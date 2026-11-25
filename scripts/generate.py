@@ -74,7 +74,8 @@ def main():
         ids = [0]
     prompt = torch.tensor([ids] * a.n, dtype=torch.long, device=device)
 
-    out = model.generate(prompt, a.max_new_tokens, a.temperature, a.top_p, tok.eos_id)
+    out = model.generate(prompt, a.max_new_tokens, a.temperature, a.top_p, tok.eos_id,
+                         vocab_siniri=tok.vocab_size)
     for i, satir in enumerate(out.tolist()):
         print(f"\n--- örnek {i + 1} ---")
         print(tok.decode(satir))

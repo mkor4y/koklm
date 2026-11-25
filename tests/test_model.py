@@ -75,6 +75,13 @@ def test_uretim(kucuk):
     assert out.shape == (1, 8)
 
 
+def test_uretim_vocab_siniri(kucuk):
+    torch.manual_seed(0)
+    out = kucuk.generate(torch.tensor([[1, 2, 3]] * 4), max_new_tokens=30,
+                         temperature=5.0, top_p=1.0, vocab_siniri=10)
+    assert int(out[:, 3:].max()) < 10
+
+
 def test_bir_egitim_adimi_kaybi_dusurur():
     torch.manual_seed(0)
     model = Transformer(ayar_al("kucuk", n_layers=2))

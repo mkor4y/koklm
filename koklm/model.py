@@ -294,10 +294,13 @@ class Transformer(nn.Module):
 
     @torch.inference_mode()
     def generate(self, prompt: torch.Tensor, max_new_tokens: int, temperature: float = 0.8,
-                 top_p: float = 0.9, eos_id: Optional[int] = None) -> torch.Tensor:
+                 top_p: float = 0.9, eos_id: Optional[int] = None,
+                 vocab_siniri: Optional[int] = None) -> torch.Tensor:
         """
         prompt: (B, T0) long. KV-cache ile otoregresif üretim:
         önce prompt bir kerede işlenir (prefill), sonra her adımda tek token.
+        vocab_siniri: model sözlüğü GPU verimliliği için tokenizer'dan büyük yuvarlandıysa
+                      (ör. 300 -> 320), fazladan token'ları asla örnekleme.
         """
         B, T0 = prompt.shape
         toplam = min(T0 + max_new_tokens, self.cfg.max_seq_len)
@@ -307,7 +310,10 @@ class Transformer(nn.Module):
             logits, _ = self(prompt, start_pos=0, sadece_son=True)
             bitti = torch.zeros(B, dtype=torch.bool, device=prompt.device)
             for pos in range(T0, toplam):
-                nxt = ornekle(logits[:, -1], temperature, top_p)
+                son = logits[:, -1]
+                if vocab_siniri is not None and vocab_siniri < son.size(-1):
+                    son[:, vocab_siniri:] = float("-inf")
+                nxt = ornekle(son, temperature, top_p)
                 if eos_id is not None:
                     nxt = torch.where(bitti, torch.full_like(nxt, eos_id), nxt)
                     bitti |= nxt == eos_id
