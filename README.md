@@ -12,6 +12,8 @@
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.3%2B-ee4c2c)
 
+### [🌐 Etkileşimli siteyi aç → mkor4y.github.io/koklm](https://mkor4y.github.io/koklm/)
+
 </div>
 
 ---
@@ -20,6 +22,21 @@ KökLM, büyük dil modellerini kara kutu olmaktan çıkarmak için yazıldı. H
 matematikle birlikte sıfırdan yazıldı ve [`docs/matematik.md`](docs/matematik.md) içinde türetildi.
 Mimari, Meta'nın açık kaynak **Llama 3** ailesiyle birebir uyumlu: gerçek Llama 3.2 1B ağırlıkları
 KökLM'e yüklenip çalıştırılabilir ve Hugging Face uygulamasıyla aynı çıktıyı verdiği testlerle doğrulanır.
+
+## Etkileşimli site
+
+**[https://mkor4y.github.io/koklm/](https://mkor4y.github.io/koklm/)**
+
+Projenin tamamı tarayıcıda, kurulum gerektirmeden incelenebilir:
+
+- Sürüklenip döndürülebilen **3B transformer yığını**; bir bloğa tıklayınca içi açılır
+- Bir token'ın modeldeki **yolculuğu**: her durağın denklemi, örnek hesabı ve gerçek kodu
+- Bir bloğun **matris matris anatomisi** ve **canlı parametre hesaplayıcı** (1B / 8B)
+- **Kendi cümlenle attention**: RoPE, nedensel maske ve √dh'nin etkisi
+- **KV-cache**, **eğitim döngüsü** ve **GPU belleği** görselleştirmeleri
+- Tarayıcıda canlı çalışan **BPE tokenizer** ve **kod gezgini**
+
+Sitenin kaynağı [`docs/`](docs/) klasöründedir.
 
 ## Öne çıkanlar
 
