@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+transformers>=4.45
+safetensors
+huggingface_hub
+koklm @ git+https://github.com/mkor4y/koklm
