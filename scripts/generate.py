@@ -46,6 +46,7 @@ def main():
     ap.add_argument("--tokenizer", help="varsayılanı kaynaktan çıkarılır")
     ap.add_argument("--prompt", default="")
     ap.add_argument("--sohbet", action="store_true", help="Instruct modelle etkileşimli sohbet")
+    ap.add_argument("--soru", help="Instruct modele tek bir soru sor ve cevabı yazdır")
     ap.add_argument("--sistem", default="Sen yardımsever bir asistansın. Türkçe cevap ver.")
     ap.add_argument("--max_new_tokens", type=int, default=256)
     ap.add_argument("--temperature", type=float, default=0.7)
@@ -84,6 +85,21 @@ def main():
         out = model.generate(prompt, a.max_new_tokens, a.temperature, a.top_p, dur,
                              vocab_siniri=tok.vocab_size)
         return [row[len(ids):] for row in out.tolist()]
+
+    if a.soru:
+        if not hasattr(tok, "sohbet_kodla"):
+            ap.error("--soru için Hugging Face tokenizer'lı bir Instruct model gerekir")
+        mesajlar = ([{"role": "system", "content": a.sistem}] if a.sistem else []) + \
+            [{"role": "user", "content": a.soru}]
+        import time
+        ids = tok.sohbet_kodla(mesajlar)
+        t0 = time.time()
+        yeni = uret(ids)[0]
+        sure = time.time() - t0
+        print(f"soru: {a.soru}")
+        print(f"cevap: {tok.decode(yeni).strip()}")
+        print(f"[{len(yeni)} token, {sure:.1f} sn, {len(yeni) / max(sure, 1e-9):.1f} token/sn]")
+        return
 
     if a.sohbet:
         if not hasattr(tok, "sohbet_kodla"):

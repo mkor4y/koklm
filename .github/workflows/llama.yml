@@ -1,0 +1,58 @@
+name: Llama ağırlıklarıyla çalıştır
+
+# Elle başlatılır: Actions sekmesi → "Llama ağırlıklarıyla çalıştır" → Run workflow.
+# Gerekli: repo secret'ı HF_TOKEN (Hugging Face Read token'ı; model sayfasında Meta'nın
+# lisansı kabul edilmiş olmalı). GPU yok; 1B model CPU'da fp32 ile çalışır.
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Hugging Face model adı"
+        default: "meta-llama/Llama-3.2-1B-Instruct"
+      soru:
+        description: "Modele sorulacak soru"
+        default: "Transformer mimarisinde attention ne işe yarar? Kısaca anlat."
+
+jobs:
+  llama:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      MODEL: ${{ inputs.model }}
+      SORU: ${{ inputs.soru }}
+    steps:
+      - name: HF_TOKEN kontrolü
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret'ı yok. Settings → Secrets and variables → Actions → New repository secret ile ekleyin."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Kurulum
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[hf]"
+      - name: Llama ağırlıklarını KökLM'e yükle ve HF Llama ile karşılaştır
+        run: python scripts/llama_donustur.py --hf "$MODEL" --cikti ckpt/llama.pt --dtype float32 --dogrula | tee donustur.log
+      - name: KökLM'e soru sor
+        run: python scripts/generate.py --ckpt ckpt/llama.pt --soru "$SORU" --max_new_tokens 160 --temperature 0.6 | tee cevap.log
+      - name: Özet
+        if: always()
+        run: |
+          {
+            echo "## KökLM × $MODEL"
+            echo
+            echo "### Yükleme ve doğrulama"
+            echo '```'
+            cat donustur.log 2>/dev/null || echo "(çalışmadı)"
+            echo '```'
+            echo "### Soru ve cevap"
+            echo '```'
+            cat cevap.log 2>/dev/null || echo "(çalışmadı)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
