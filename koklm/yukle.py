@@ -161,6 +161,31 @@ def meta_yukle(klasor: str, dtype: torch.dtype = torch.bfloat16,
     return _modele_yukle(cfg, sd, dtype, device)
 
 
+# ---------------------------------------------------------------------------
+# KökLM checkpoint'i olarak kaydet / yükle
+# ---------------------------------------------------------------------------
+def koklm_kaydet(model: Transformer, yol: str, tokenizer: str, vocab_size: Optional[int] = None):
+    """
+    Modeli KökLM checkpoint biçiminde kaydeder. Bu dosya doğrudan
+    `scripts/generate.py --ckpt` ile çalıştırılabilir ve
+    `scripts/train.py --baslangic` ile eğitime başlangıç noktası olur.
+    """
+    Path(yol).parent.mkdir(parents=True, exist_ok=True)
+    sd = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+    torch.save({"model": sd, "config": model.cfg.to_dict(), "adim": 0,
+                "veri_meta": {"tokenizer": tokenizer,
+                              "vocab_size": vocab_size or model.cfg.vocab_size}}, yol)
+
+
+def checkpoint_yukle(yol: str, dtype: torch.dtype = torch.float32,
+                     device: str = "cpu") -> tuple[Transformer, dict]:
+    """KökLM checkpoint'ini yükler. Dönüş: (model, checkpoint sözlüğü)."""
+    ck = torch.load(yol, map_location="cpu", weights_only=False)
+    model = Transformer(ModelConfig.from_dict(ck["config"]))
+    model.load_state_dict(ck["model"])
+    return model.to(device=device, dtype=dtype).rope_yenile().eval(), ck
+
+
 def _modele_yukle(cfg, sd, dtype, device) -> Transformer:
     with torch.device("meta"):
         model = Transformer(cfg)

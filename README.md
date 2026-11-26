@@ -14,6 +14,8 @@
 
 ### [🌐 Etkileşimli siteyi aç → mkor4y.github.io/koklm](https://mkor4y.github.io/koklm/)
 
+[![Colab'da aç](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mkor4y/koklm/blob/main/notebooks/KokLM_Llama.ipynb) &nbsp;Gerçek Llama 3.2 ağırlıklarıyla KökLM'i çalıştır ve sohbet et
+
 </div>
 
 ---
@@ -94,12 +96,30 @@ pytest
 
 ## Kullanım
 
-### Gerçek Llama 3.2 1B'yi KökLM mimarisinde çalıştır
+### Llama ağırlıklarıyla çalıştır ve sohbet et
+
+KökLM'in mimarisi Llama 3 ile birebir aynı olduğu için Meta'nın eğittiği ağırlıklar doğrudan yüklenebilir.
+En kolay yol: [Colab not defteri](https://colab.research.google.com/github/mkor4y/koklm/blob/main/notebooks/KokLM_Llama.ipynb) (ücretsiz T4 GPU yeterli).
 
 ```bash
-# Hugging Face'te model sayfasından erişim izni alıp `huggingface-cli login` yapın
-python scripts/generate.py --hf meta-llama/Llama-3.2-1B --prompt "The capital of Turkey is"
+pip install -e ".[hf]"
+huggingface-cli login          # model sayfasında Meta'nın lisansını kabul etmiş olmalısın
+
+# 1) Llama ağırlıklarını KökLM checkpoint'ine dönüştür, HF Llama ile karşılaştır
+python scripts/llama_donustur.py --hf meta-llama/Llama-3.2-1B-Instruct \
+    --cikti checkpoints/llama32_1b_instruct.pt --dogrula
+
+# 2) Sohbet et
+python scripts/generate.py --ckpt checkpoints/llama32_1b_instruct.pt --sohbet
+
+# 3) Llama'dan başlayarak kendi Türkçe verinle ince ayar yap
+python scripts/prepare_data.py --girdi metinler/ --cikti data/tr \
+    --tokenizer hf:meta-llama/Llama-3.2-1B-Instruct
+python scripts/train.py --baslangic checkpoints/llama32_1b_instruct.pt --data data/tr \
+    --lr 2e-5 --min_lr 2e-6 --warmup 50 --max_steps 1000 --grad_checkpoint
 ```
+
+Llama ağırlıkları bu repoda yer almaz; Meta'nın [Llama 3.2 lisansına](https://www.llama.com/llama3_2/license/) tabidir.
 
 ### Kendi modelini eğit
 
@@ -180,6 +200,7 @@ tests/             mimari, nedensellik, KV-cache, RoPE, BPE, HF Llama uyumluluğ
 - [x] Eğitim, veri ve üretim altyapısı
 - [x] Gerçek Llama 3 ağırlıklarını yükleme ve doğrulama
 - [x] Sıfırdan BPE tokenizer
+- [x] Llama ağırlıklarıyla sohbet ve ince ayar başlangıcı
 - [ ] FSDP ile 8B ölçeğinde eğitim
 - [ ] Türkçe ön-eğitim ve ölçekleme deneyleri
 - [ ] Sohbet ince ayarı (SFT) ve LoRA

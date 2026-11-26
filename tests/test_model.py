@@ -75,6 +75,18 @@ def test_uretim(kucuk):
     assert out.shape == (1, 8)
 
 
+def test_uretim_birden_fazla_durdurma(kucuk):
+    torch.manual_seed(0)
+    out = kucuk.generate(torch.tensor([[1, 2, 3]] * 3), max_new_tokens=40, temperature=5.0,
+                         top_p=1.0, eos_id=[7, 9, 11])
+    yeni = out[:, 3:]
+    # Bir durdurma token'ı üretildikten sonra satır hep ilk durdurma token'ıyla dolar
+    for satir in yeni.tolist():
+        if any(t in (7, 9, 11) for t in satir):
+            i = next(k for k, t in enumerate(satir) if t in (7, 9, 11))
+            assert all(t == 7 for t in satir[i + 1:])
+
+
 def test_uretim_vocab_siniri(kucuk):
     torch.manual_seed(0)
     out = kucuk.generate(torch.tensor([[1, 2, 3]] * 4), max_new_tokens=30,

@@ -32,6 +32,8 @@ def argumanlar():
     ap.add_argument("--data", required=True, help="prepare_data.py çıktı klasörü")
     ap.add_argument("--out_dir", default="checkpoints")
     ap.add_argument("--resume", action="store_true", help="out_dir/son.pt'den devam et")
+    ap.add_argument("--baslangic", help="ağırlıkları bu KökLM checkpoint'inden başlat "
+                    "(örn. llama_donustur.py çıktısı) -> ince ayar")
     # batch: token/adım = batch_size * seq_len * grad_accum * gpu_sayısı
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--seq_len", type=int, default=512)
@@ -141,8 +143,17 @@ def main():
 
     son_ckpt = out_dir / "son.pt"
     ckpt = torch.load(son_ckpt, map_location="cpu") if a.resume and son_ckpt.exists() else None
+    bas = None
+    if ckpt is None and a.baslangic:
+        bas = torch.load(a.baslangic, map_location="cpu", weights_only=False)
+        bas_tok = bas.get("veri_meta", {}).get("tokenizer")
+        if ana and bas_tok and bas_tok != veri.meta.get("tokenizer"):
+            print(f"UYARI: başlangıç modeli '{bas_tok}' tokenizer'ı ile eğitilmiş, "
+                  f"veri ise '{veri.meta.get('tokenizer')}' ile hazırlanmış. Aynı olmalı.")
     if ckpt is not None:
         cfg = ModelConfig.from_dict(ckpt["config"])
+    elif bas is not None:
+        cfg = ModelConfig.from_dict(bas["config"])
     else:
         degisiklik = {"max_seq_len": a.seq_len}
         tok_V = veri.meta["vocab_size"]
@@ -157,6 +168,11 @@ def main():
     model.grad_checkpoint = a.grad_checkpoint
     optimizer = optimizer_kur(model, a, device_type)
     adim, en_iyi_val = 0, float("inf")
+    if bas is not None:
+        model.load_state_dict(bas["model"])
+        if ana:
+            print(f"ağırlıklar yüklendi: {a.baslangic}")
+        del bas
     if ckpt is not None:
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])

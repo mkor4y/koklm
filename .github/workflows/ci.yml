@@ -60,4 +60,6 @@ jobs:
           --log_interval 5 --grad_checkpoint
       - run: python scripts/train.py --model kucuk --data data/ornek --seq_len 32 --batch_size 4 --max_steps 35 --resume --eval_interval 10 --eval_iters 2
       - run: python scripts/generate.py --ckpt checkpoints/en_iyi.pt --prompt "Bir varmış" --max_new_tokens 20 --n 2
+      - name: Kaydedilmiş modelden ince ayar başlat
+        run: python scripts/train.py --model kucuk --data data/ornek --seq_len 32 --batch_size 4 --max_steps 5 --baslangic checkpoints/en_iyi.pt --out_dir checkpoints_ft --eval_interval 100
       - run: test -s checkpoints/log.jsonl && tail -3 checkpoints/log.jsonl

@@ -294,14 +294,20 @@ class Transformer(nn.Module):
 
     @torch.inference_mode()
     def generate(self, prompt: torch.Tensor, max_new_tokens: int, temperature: float = 0.8,
-                 top_p: float = 0.9, eos_id: Optional[int] = None,
+                 top_p: float = 0.9, eos_id=None,
                  vocab_siniri: Optional[int] = None) -> torch.Tensor:
         """
         prompt: (B, T0) long. KV-cache ile otoregresif üretim:
         önce prompt bir kerede işlenir (prefill), sonra her adımda tek token.
+        eos_id:       durdurma token'ı ya da listesi
+                      (Llama 3 Instruct: <|eot_id|> ve <|end_of_text|>)
         vocab_siniri: model sözlüğü GPU verimliliği için tokenizer'dan büyük yuvarlandıysa
                       (ör. 300 -> 320), fazladan token'ları asla örnekleme.
         """
+        eos = None
+        if eos_id is not None:
+            ids = list(eos_id) if isinstance(eos_id, (list, tuple, set)) else [eos_id]
+            eos = torch.tensor(ids, dtype=torch.long, device=prompt.device)
         B, T0 = prompt.shape
         toplam = min(T0 + max_new_tokens, self.cfg.max_seq_len)
         self.cache_kur(B, toplam)
@@ -314,11 +320,11 @@ class Transformer(nn.Module):
                 if vocab_siniri is not None and vocab_siniri < son.size(-1):
                     son[:, vocab_siniri:] = float("-inf")
                 nxt = ornekle(son, temperature, top_p)
-                if eos_id is not None:
-                    nxt = torch.where(bitti, torch.full_like(nxt, eos_id), nxt)
-                    bitti |= nxt == eos_id
+                if eos is not None:
+                    nxt = torch.where(bitti, torch.full_like(nxt, int(eos[0])), nxt)
+                    bitti |= torch.isin(nxt, eos)
                 tokens = torch.cat([tokens, nxt[:, None]], dim=1)
-                if eos_id is not None and bitti.all():
+                if eos is not None and bitti.all():
                     break
                 if pos + 1 < toplam:
                     logits, _ = self(nxt[:, None], start_pos=pos, sadece_son=True)

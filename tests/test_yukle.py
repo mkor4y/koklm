@@ -82,3 +82,19 @@ def test_hf_klasorden_yukle(tmp_path):
     x = torch.randint(0, 256, (1, 30))
     with torch.no_grad():
         assert torch.allclose(model(x)[0], hf(x).logits, atol=1e-4)
+
+
+def test_koklm_checkpoint_gidis_donus(tmp_path):
+    # HF Llama -> KökLM -> diske kaydet -> geri yükle: aynı çıktı
+    from koklm.yukle import checkpoint_yukle, hf_yukle, koklm_kaydet
+
+    hf = _hf_model(True, OLCEK)
+    hf.save_pretrained(tmp_path / "hf", safe_serialization=True)
+    model = hf_yukle(str(tmp_path / "hf"), dtype=torch.float32)
+    yol = tmp_path / "koklm.pt"
+    koklm_kaydet(model, str(yol), tokenizer="hf:ornek")
+    geri, ck = checkpoint_yukle(str(yol))
+    assert ck["veri_meta"]["tokenizer"] == "hf:ornek"
+    x = torch.randint(0, 256, (1, 24))
+    with torch.no_grad():
+        assert torch.allclose(geri(x)[0], hf(x).logits, atol=1e-4)
