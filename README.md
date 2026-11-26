@@ -6,6 +6,7 @@
 
 *A from-scratch, Llama 3–compatible language model in PyTorch, built to understand billion-parameter LLMs from first principles.*
 
+[![Site](https://img.shields.io/badge/site-mkor4y.github.io%2Fkoklm-ff4a1c)](https://mkor4y.github.io/koklm/)
 [![CI](https://github.com/mkor4y/koklm/actions/workflows/ci.yml/badge.svg)](https://github.com/mkor4y/koklm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
