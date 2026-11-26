@@ -5,186 +5,199 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KökLM</title>
 <meta name="description" content="KökLM: milyar parametrelik LLM'leri kökünden çözmek için sıfırdan yazılmış, Llama 3 uyumlu dil modeli. Mimari, matematik ve hesaplamalar.">
+<meta name="theme-color" content="#05060f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Condensed:wght@600;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* VOICE occasion: bir mühendislik projesinin vitrini; kendinden emin, yoğun, oynanabilir
-   IDEA KökLM bir ağaç: kökleri token'lar, gövdesi 16 transformer bloğu, tacı sonraki token olasılığı; her bölüm bir yıllık raporun sayfası gibi
-   PICTURE kahramanda canlı ağaç: token'lar kökten girip gövdedeki bloklardan (gerçek attention/FFN oranında) tırmanıp taca ulaşır
-   COLOUR beyaz zemin, mürekkep siyahı, cıva kırmızısı #ff4a1c düz kütle; gece #120d0b üzerinde kırmızı
-   TYPE Sofia Sans Condensed 800 başlıklar + Instrument Sans metin; formüller JetBrains Mono
-   LAYOUT laptop: kırmızı bant, solda dar başlık sütunu + sağda geniş ağaç; telefon: başlık, ağaç, sayılar alt alta */
-:root{color-scheme:light dark;--bg:light-dark(#ffffff,#120d0b);--ink:light-dark(#120d0b,#f6efe9);--mute:light-dark(#5d5552,#b3a7a1);--red:#ff4a1c;--redink:light-dark(#d93a10,#ff6a42);--rule:light-dark(#e8e2df,#2d2421);--panel:light-dark(#f7f4f2,#1b1411);--soft:light-dark(#ffe3da,#3a1a10)}
-:root[data-theme=light]{color-scheme:light}
-:root[data-theme=dark]{color-scheme:dark}
+/* VOICE koyu, parlayan bir yapay zeka vitrini; kendinden emin, etkileşimli
+   IDEA modelin içi: nöronlar arka planda yaşar, token'lar ışık olarak bloklardan akar
+   PICTURE kahramanda sürüklenebilir 3B transformer yığını; altta embedding ızgarası, üstte çıkış halkası
+   COLOUR gece #05060f, camgöbeği #22d3ee, mor #8b5cf6, mavi #3b82f6, pembe #f472b6 vurgu; tek koyu palet
+   TYPE Space Grotesk başlıklar + Inter metin + JetBrains Mono formüller
+   LAYOUT laptop: solda başlık, sağda 3B sahne; telefon: başlık, sahne, sayılar alt alta */
+:root{color-scheme:dark;--bg:#05060f;--bg2:#0a0d1f;--ink:#e8ebf7;--mute:#8d95b5;--glass:rgba(255,255,255,.045);--glass2:rgba(255,255,255,.075);--line:rgba(255,255,255,.1);--c:#22d3ee;--v:#8b5cf6;--b:#3b82f6;--p:#f472b6;--grad:linear-gradient(120deg,#22d3ee 0%,#8b5cf6 50%,#f472b6 100%)}
 *{box-sizing:border-box;min-width:0}
-html{scroll-padding-top:72px;scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Instrument Sans",system-ui,sans-serif;overflow-x:clip}
-h1,h2,h3{font-family:"Sofia Sans Condensed","Arial Narrow",sans-serif;font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:0;text-wrap:balance}
-h2{font-size:clamp(34px,4.6vw,52px)}
-h3{font-size:24px;letter-spacing:-.01em}
+html{scroll-padding-top:76px;scroll-behavior:smooth;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Inter,system-ui,sans-serif;overflow-x:clip}
+#net{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+main,nav,footer{position:relative;z-index:1}
+h1,h2,h3{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;line-height:1.05;letter-spacing:-.025em;margin:0;text-wrap:balance}
+h2{font-size:clamp(34px,4.4vw,52px)}
+h3{font-size:22px;letter-spacing:-.01em}
 p{margin:0 0 12px;max-width:68ch}
 a{color:inherit}
-code,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.92em}
-.band{padding-block:clamp(40px,6vw,88px);padding-left:max(5vw,16px);padding-right:max(5vw,16px)}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.9em;color:#a5f3fc}
+.band{padding-block:clamp(56px,8vw,120px);padding-left:max(5vw,16px);padding-right:max(5vw,16px)}
 .wrap{max-width:1240px;margin:0 auto}
-.lead{font-size:18px;color:var(--mute);max-width:62ch}
-.sec-head{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px 48px;align-items:end;margin-bottom:36px}
+.lead{font-size:18px;color:var(--mute);max-width:60ch}
+.gt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sec-head{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6fr);gap:20px 56px;align-items:end;margin-bottom:44px}
 .sec-head p{margin:0}
-nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
-nav .wrap{display:flex;align-items:center;gap:20px;padding:10px max(5vw,16px);max-width:none}
-.logo{font:800 24px "Sofia Sans Condensed",sans-serif;text-decoration:none;display:flex;align-items:center;gap:8px;flex:none}
-.logo i{width:14px;height:14px;background:var(--red);border-radius:50% 50% 50% 0;display:inline-block}
-.links{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1}
-.links a{flex:none;text-decoration:none;padding:8px 10px;border-radius:8px;font-weight:500;font-size:15px;color:var(--mute)}
-.links a:hover,.links a.on{color:var(--ink);background:var(--panel)}
-.gh{flex:none;text-decoration:none;background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px}
-.hero{background:var(--red);color:#120d0b;padding-top:clamp(28px,4vw,56px);padding-bottom:0}
-.hero .wrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px 40px;align-items:stretch}
-.hero h1{font-size:clamp(76px,11vw,156px);letter-spacing:-.035em;line-height:.9}
-.hero .tag{font-size:clamp(20px,2.2vw,26px);font-weight:600;line-height:1.3;margin:18px 0 26px;max-width:22ch;text-wrap:balance}
-.hero .copy{display:flex;flex-direction:column;justify-content:center;padding-bottom:clamp(28px,4vw,56px)}
-.count{font:800 clamp(40px,5.4vw,68px)/1 "Sofia Sans Condensed",sans-serif;letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
-.count-l{font-weight:500;margin-top:6px}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
-.chips span{border:1.5px solid #120d0b;border-radius:999px;padding:5px 12px;font-weight:600;font-size:14px;white-space:nowrap}
-.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:999px;font:600 15px "Instrument Sans",sans-serif;text-decoration:none;border:1.5px solid currentColor;background:transparent;color:inherit;cursor:pointer}
-.btn.solid{background:#120d0b;color:#fff;border-color:#120d0b}
-.btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--redink);outline-offset:2px}
-.tree{position:relative;min-height:clamp(420px,52vw,620px)}
-.tree svg{position:absolute;inset:0;width:100%;height:100%}
-svg text{font-family:"Instrument Sans",sans-serif}
-.route{list-style:none;margin:0 0 28px;padding:0;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:0;position:relative}
-.route::before{content:"";position:absolute;left:5%;right:5%;top:21px;height:3px;background:var(--rule)}
-.route li{position:relative;text-align:center}
-.route button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;padding:0 2px;min-height:44px}
-.route .dot{width:44px;height:44px;border-radius:50%;background:var(--bg);border:3px solid var(--ink);display:grid;place-items:center;font:800 18px "Sofia Sans Condensed",sans-serif;position:relative;z-index:1;transition:background .3s,color .3s,transform .3s}
-.route .nm{font-weight:600;font-size:14px;line-height:1.25}
-.route button[aria-pressed=true] .dot{background:var(--red);border-color:var(--red);color:#120d0b;transform:scale(1.12)}
-.route button[aria-pressed=true] .dot::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid var(--red);animation:ping 1.6s ease-out infinite}
-@keyframes ping{from{opacity:.9;transform:scale(.85)}to{opacity:0;transform:scale(1.35)}}
-.detail{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:20px 40px;background:var(--panel);border-radius:18px;padding:clamp(20px,3vw,36px)}
-.eq{font-family:"JetBrains Mono",monospace;font-size:clamp(15px,1.7vw,19px);line-height:1.7;background:var(--bg);border-radius:12px;padding:16px 18px;margin:14px 0;overflow-x:auto;white-space:pre}
-.facts{display:grid;gap:10px;align-content:start}
-.fact{border-top:1px solid var(--rule);padding-top:10px}
-.fact b{display:block;font:800 30px/1.1 "Sofia Sans Condensed",sans-serif;white-space:nowrap}
+.glass{background:linear-gradient(180deg,var(--glass2),var(--glass));border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+nav{position:sticky;top:0;z-index:30;background:rgba(5,6,15,.62);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+nav .in{display:flex;align-items:center;gap:20px;padding:12px max(5vw,16px)}
+.logo{font:700 22px "Space Grotesk",sans-serif;text-decoration:none;display:flex;align-items:center;gap:10px;flex:none}
+.logo i{width:14px;height:14px;border-radius:50%;background:var(--grad);box-shadow:0 0 16px #8b5cf6,0 0 4px #22d3ee}
+.links{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
+.links a{flex:none;text-decoration:none;padding:8px 12px;border-radius:999px;font-weight:500;font-size:14.5px;color:var(--mute);transition:color .2s,background .2s}
+.links a:hover,.links a.on{color:var(--ink);background:var(--glass2)}
+.gh{flex:none;text-decoration:none;padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;background:var(--grad);color:#05060f}
+.hero{min-height:min(100svh,940px);display:grid;align-items:center;padding-top:clamp(32px,5vw,64px);padding-bottom:clamp(32px,5vw,64px)}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px 32px;align-items:center;width:100%}
+.hero h1{font-size:clamp(72px,10vw,140px);letter-spacing:-.045em;line-height:.92;background:linear-gradient(100deg,#fff 0%,#a5f3fc 30%,#c4b5fd 55%,#f9a8d4 75%,#fff 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 8s linear infinite}
+@keyframes shine{to{background-position:-250% 0}}
+.hero .tag{font-size:clamp(19px,2vw,24px);line-height:1.35;margin:20px 0 28px;max-width:24ch;color:#cfd5ec}
+.count{font:700 clamp(40px,5vw,64px)/1 "Space Grotesk",sans-serif;letter-spacing:-.03em;white-space:nowrap;font-variant-numeric:tabular-nums;text-shadow:0 0 32px rgba(34,211,238,.35)}
+.count-l{color:var(--mute);margin-top:8px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.chips span{border:1px solid var(--line);background:var(--glass);border-radius:999px;padding:6px 13px;font-weight:500;font-size:13.5px;white-space:nowrap;color:#cfd5ec}
+.chips b{color:var(--c);font-weight:600}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 20px;border-radius:999px;font:600 15px Inter,sans-serif;text-decoration:none;border:1px solid var(--line);background:var(--glass2);color:var(--ink);cursor:pointer;transition:transform .2s,box-shadow .2s,background .2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(139,92,246,.35)}
+.btn.pri{background:var(--grad);color:#05060f;border:0;box-shadow:0 0 30px rgba(139,92,246,.45)}
+:focus-visible{outline:2px solid var(--c);outline-offset:3px}
+.stage{position:relative;height:clamp(420px,46vw,600px);cursor:grab;touch-action:pan-y}
+.stage:active{cursor:grabbing}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%}
+.stage .hint{position:absolute;right:8px;bottom:6px;font-size:12.5px;color:var(--mute)}
+.flow{padding:clamp(18px,2.6vw,30px)}
+.flowfig{position:relative;height:240px}
+.flowfig svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.node{cursor:pointer}
+.node text{font-family:"Space Grotesk",sans-serif}
+.detail{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:22px 44px;margin-top:18px;border-top:1px solid var(--line);padding-top:24px}
+.detail h3{font-size:28px}
+.eq{font-family:"JetBrains Mono",monospace;font-size:clamp(14.5px,1.6vw,18px);line-height:1.75;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin:12px 0;overflow-x:auto;white-space:pre;color:#e0f2fe}
+.facts{display:grid;gap:12px;align-content:start}
+.fact{border-left:2px solid var(--v);padding-left:14px}
+.fact b{display:block;font:700 30px/1.15 "Space Grotesk",sans-serif;white-space:nowrap}
 .fact span{color:var(--mute);font-size:14px}
-.prog{height:3px;background:var(--rule);border-radius:3px;margin-top:16px;overflow:hidden}
-.prog i{display:block;height:100%;width:0;background:var(--red)}
-.calc{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:28px 40px}
-.ctrl{display:grid;gap:16px;align-content:start;background:var(--panel);border-radius:18px;padding:22px}
-.presets{display:flex;gap:6px;flex-wrap:wrap}
-.presets button{flex:1;min-height:44px;border-radius:10px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font:600 15px "Instrument Sans",sans-serif;cursor:pointer}
-.presets button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
-label.row{display:grid;gap:6px;font-weight:600;font-size:14px}
+.prog{height:3px;background:var(--line);border-radius:3px;margin-top:14px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--grad)}
+.calc{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:24px}
+.ctrl{display:grid;gap:16px;align-content:start;padding:22px;align-self:start;position:sticky;top:88px}
+@media(max-width:900px){.ctrl{position:static}}
+.presets{display:flex;gap:6px}
+.presets button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--glass);color:var(--ink);font:600 15px Inter,sans-serif;cursor:pointer;transition:all .2s}
+.presets button[aria-pressed=true]{background:var(--grad);color:#05060f;border-color:transparent;box-shadow:0 0 24px rgba(139,92,246,.45)}
+label.row{display:grid;gap:6px;font-weight:500;font-size:14px;color:#cfd5ec}
 label.row .top{display:flex;justify-content:space-between;gap:8px}
-label.row output{font-family:"JetBrains Mono",monospace;font-weight:400;white-space:nowrap}
+label.row output{font-family:"JetBrains Mono",monospace;color:var(--c);white-space:nowrap}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,var(--red) var(--p,50%),var(--rule) var(--p,50%))}
-input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:var(--rule)}
-input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:var(--red)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--ink);border:3px solid var(--bg);margin-top:-9px;box-shadow:0 0 0 1.5px var(--ink)}
-input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ink);border:3px solid var(--bg)}
-select,textarea{font:16px "Instrument Sans",sans-serif;color:var(--ink);background:var(--bg);border:1.5px solid var(--mute);border-radius:10px;padding:10px 12px;min-height:44px;width:100%}
-.check{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px;min-height:44px;cursor:pointer}
-.check input{width:22px;height:22px;accent-color:var(--red)}
-.res{display:grid;gap:22px}
-.total{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 24px;align-items:end;border-bottom:3px solid var(--ink);padding-bottom:14px}
-.total .big{font:800 clamp(44px,6.4vw,84px)/.95 "Sofia Sans Condensed",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.total .sub{color:var(--mute);font-weight:500}
-.waffle{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px}
-.waffle i{aspect-ratio:1;border-radius:3px;background:var(--rule);transition:background .5s}
-.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;margin-top:10px}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
-.bars{display:grid;gap:8px}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,#22d3ee,#8b5cf6 var(--p,50%),rgba(255,255,255,.12) var(--p,50%))}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:rgba(255,255,255,.12)}
+input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:linear-gradient(90deg,#22d3ee,#8b5cf6)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;margin-top:-8px;box-shadow:0 0 0 4px rgba(139,92,246,.35),0 0 18px #8b5cf6}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:0;box-shadow:0 0 0 4px rgba(139,92,246,.35),0 0 18px #8b5cf6}
+select,textarea{font:16px Inter,sans-serif;color:var(--ink);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:44px;width:100%}
+select option{background:#0a0d1f}
+.check{display:flex;align-items:center;gap:10px;font-weight:500;font-size:14px;min-height:44px;cursor:pointer;color:#cfd5ec}
+.check input{width:20px;height:20px;accent-color:#8b5cf6}
+.res{display:grid;gap:20px;padding:24px}
+.total{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:8px 24px;border-bottom:1px solid var(--line);padding-bottom:16px}
+.total .big{font:700 clamp(42px,6vw,80px)/.95 "Space Grotesk",sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.total .sub{color:var(--mute)}
+.total .bil{font:700 28px "Space Grotesk",sans-serif}
+.waffle{display:grid;grid-template-columns:repeat(25,minmax(0,1fr));gap:3px}
+.waffle i{aspect-ratio:1;border-radius:3px;background:rgba(255,255,255,.06);transition:background .5s,box-shadow .5s}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin-top:12px;color:#cfd5ec}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.bars{display:grid;gap:9px}
 .bar{display:grid;grid-template-columns:9em minmax(0,1fr) 9.5em;gap:12px;align-items:center;font-size:14px}
-.bar .tr{height:22px;background:var(--panel);border-radius:4px;overflow:hidden}
-.bar .tr i{display:block;height:100%;border-radius:4px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
-.bar .v{text-align:right;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:nowrap}
-.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5em,1fr));gap:12px}
-.stat{background:var(--panel);border-radius:14px;padding:14px 16px}
-.stat b{display:block;font:800 28px/1.1 "Sofia Sans Condensed",sans-serif;white-space:nowrap}
-.stat span{font-size:13.5px;color:var(--mute);display:block;margin-top:2px}
+.bar .tr{height:10px;background:rgba(255,255,255,.06);border-radius:10px;overflow:hidden}
+.bar .tr i{display:block;height:100%;border-radius:10px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.bar .v{text-align:right;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:nowrap;color:#cfd5ec}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(10em,1fr));gap:12px}
+.stat{background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.stat b{display:block;font:700 25px/1.15 "Space Grotesk",sans-serif;white-space:nowrap}
+.stat span{font-size:13.5px;color:var(--mute);display:block;margin-top:3px}
 table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left}
-th{font-weight:600;color:var(--mute);font-size:13.5px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-weight:500;color:var(--mute);font-size:13.5px}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .scroll{overflow-x:auto}
-.math{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
-.card{background:var(--panel);border-radius:18px;padding:clamp(18px,2.4vw,28px);display:flex;flex-direction:column;gap:6px}
-.card .eq{margin:8px 0 10px}
+.math{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.card{padding:clamp(18px,2.4vw,28px);display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:-1px;border-radius:22px;padding:1px;background:linear-gradient(140deg,rgba(34,211,238,.5),transparent 35%,transparent 65%,rgba(139,92,246,.5));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .card p{color:var(--mute);font-size:15.5px}
 .card.wide{grid-column:1/-1}
-.demo{position:relative;min-height:250px;margin-top:auto}
-.demo svg{position:absolute;inset:0;width:100%;height:100%}
 .minirow{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:10px}
 .minirow label.row{flex:1 1 140px}
 .small{font-size:13.5px;color:var(--mute)}
-.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
 .fig{position:relative;min-height:300px}
-.fig svg{position:absolute;inset:0;width:100%;height:100%}
-.tok{display:flex;flex-wrap:wrap;gap:4px;font-family:"JetBrains Mono",monospace;font-size:15px;line-height:1;padding:16px;background:var(--bg);border-radius:12px;min-height:120px;align-content:flex-start}
-.tok span{padding:7px 6px;border-radius:5px;white-space:pre;animation:pop .35s ease-out both}
-@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
-.merges{font-family:"JetBrains Mono",monospace;font-size:13.5px;display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.merges span{background:var(--bg);border-radius:6px;padding:4px 8px;white-space:pre}
-.scale .bar{grid-template-columns:12em minmax(0,1fr) 7em}
-.scale .bar .tr{height:26px}
-.tag2{font-size:12.5px;color:var(--mute);font-weight:500}
-#parametre .stat,#parametre .bar .tr{background:var(--bg)}
-#tokenizer .tok,#tokenizer .merges span{background:var(--panel)}
-.tests{display:grid;grid-template-columns:repeat(auto-fit,minmax(17em,1fr));gap:14px}
-.test{border-left:4px solid var(--red);padding:6px 0 6px 14px}
-.test b{display:block}
-.test code{font-size:13px;color:var(--mute);overflow-wrap:anywhere}
+.fig svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+svg text{font-family:Inter,sans-serif}
+.tok{display:flex;flex-wrap:wrap;gap:5px;font-family:"JetBrains Mono",monospace;font-size:15px;line-height:1;padding:18px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:16px;min-height:140px;align-content:flex-start}
+.tok span{padding:7px 7px;border-radius:7px;white-space:pre;color:#05060f;font-weight:600;animation:pop .35s ease-out both}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+.merges{font-family:"JetBrains Mono",monospace;font-size:13px;display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.merges span{background:var(--glass2);border:1px solid var(--line);border-radius:8px;padding:5px 9px;white-space:pre;color:#cfd5ec}
+.scale{display:grid;gap:14px}
+.scale .bar{grid-template-columns:12em minmax(0,1fr) 6em}
+.scale .bar .tr{height:14px}
+.tag2{font-size:12.5px;color:var(--mute)}
+.tests{display:grid;grid-template-columns:repeat(auto-fit,minmax(16.5em,1fr));gap:14px}
+.test{padding:18px}
+.test b{display:flex;gap:8px;align-items:center}
+.test b::before{content:"";width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 10px #34d399;flex:none}
+.test code{font-size:12.5px;color:var(--mute);overflow-wrap:anywhere;display:block;margin-top:4px}
 .road{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.road li{background:var(--panel);border-radius:14px;padding:16px;font-weight:600;position:relative}
-.road li.ok{background:var(--red);color:#120d0b}
-.road li small{display:block;font-weight:500;margin-top:4px;opacity:.8}
-.cta-band{background:#120d0b;color:#f6efe9}
-.cta-band .wrap{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:24px 48px;align-items:center}
-.cta-band pre{background:#241a16;border-radius:14px;padding:18px;margin:0;font:14px/1.7 "JetBrains Mono",monospace;overflow-x:auto;color:#ffd9cc}
-footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;font-size:14px;color:var(--mute);border-top:1px solid var(--rule)}
-@media(max-width:900px){.hero .wrap,.sec-head,.detail,.calc,.cta-band .wrap{grid-template-columns:minmax(0,1fr)}.route{grid-template-columns:minmax(0,1fr);gap:6px}.route::before{left:20px;right:auto;top:10px;bottom:10px;width:3px;height:auto}.route button{flex-direction:row;text-align:left;gap:14px}.road{grid-template-columns:repeat(2,minmax(0,1fr))}.hero .copy{padding-bottom:0}}
-@media(max-width:700px){.math,.split{grid-template-columns:minmax(0,1fr)}.links{display:none}.bar{grid-template-columns:7em minmax(0,1fr) 8.5em}.scale .bar{grid-template-columns:8.5em minmax(0,1fr) 5.5em}.waffle{gap:2px}}
-@media(max-width:420px){.road{grid-template-columns:minmax(0,1fr)}.hero h1{font-size:72px}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+.road li{padding:18px;font-weight:600}
+.road li.ok{border-color:rgba(34,211,238,.45);box-shadow:inset 0 0 40px rgba(34,211,238,.08)}
+.road li small{display:block;font-weight:400;margin-top:4px;color:var(--mute)}
+.road li span{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--mute)}
+.road li.ok span{color:var(--c)}
+.cta-box{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:24px 48px;align-items:center;padding:clamp(24px,4vw,52px);background:radial-gradient(120% 140% at 0% 0%,rgba(139,92,246,.35),transparent 60%),radial-gradient(100% 120% at 100% 100%,rgba(34,211,238,.25),transparent 60%),var(--glass)}
+.cta-box pre{background:rgba(0,0,0,.5);border:1px solid var(--line);border-radius:14px;padding:18px;margin:0;font:14px/1.75 "JetBrains Mono",monospace;overflow-x:auto;color:#a5f3fc}
+footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;font-size:14px;color:var(--mute);border-top:1px solid var(--line)}
+.js [data-r]{opacity:0;transform:translateY(36px) scale(.985);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+.js [data-r].in{opacity:1;transform:none}
+.js [data-r][data-d="1"]{transition-delay:.08s}.js [data-r][data-d="2"]{transition-delay:.16s}.js [data-r][data-d="3"]{transition-delay:.24s}
+@media(max-width:900px){.hero .wrap,.sec-head,.detail,.calc,.cta-box{grid-template-columns:minmax(0,1fr)}.road{grid-template-columns:repeat(2,minmax(0,1fr))}.flowfig{height:560px}}
+@media(max-width:700px){.math,.split{grid-template-columns:minmax(0,1fr)}.links{display:none}.bar{grid-template-columns:6.5em minmax(0,1fr) 8.2em}.scale .bar{grid-template-columns:8.5em minmax(0,1fr) 4.5em}.waffle{grid-template-columns:repeat(20,minmax(0,1fr));gap:2px}.hero{min-height:0}}
+@media(max-width:420px){.road{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}.js [data-r]{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-<nav aria-label="Bölümler"><div class="wrap">
+<canvas id="net" aria-hidden="true"></canvas>
+<nav aria-label="Bölümler"><div class="in">
 <a class="logo" href="#top"><i></i>KökLM</a>
 <div class="links">
-<a href="#mimari">Mimari</a><a href="#parametre">Parametreler</a><a href="#matematik">Matematik</a><a href="#egitim">Eğitim</a><a href="#tokenizer">Tokenizer</a><a href="#olcek">Ölçek</a><a href="#dogrulama">Doğrulama</a>
+<a href="#akis">Veri akışı</a><a href="#parametre">Parametreler</a><a href="#matematik">Matematik</a><a href="#egitim">Eğitim</a><a href="#tokenizer">Tokenizer</a><a href="#olcek">Ölçek</a><a href="#dogrulama">Doğrulama</a>
 </div>
 <a class="gh" href="https://github.com/mkor4y/koklm">GitHub</a>
 </div></nav>
+<main>
 
 <header class="band hero" id="top"><div class="wrap">
-<div class="copy">
+<div>
 <h1>KökLM</h1>
 <p class="tag">Milyar parametrelik LLM'leri kökünden çözmek için sıfırdan yazdığım dil modeli.</p>
 <div class="count" id="heroCount">1.235.814.400</div>
 <div class="count-l">parametre · Llama 3.2 1B ile birebir aynı mimari</div>
-<div class="chips"><span>PyTorch</span><span>Llama 3 uyumlu</span><span>34 test geçti</span><span>MIT</span></div>
-<div class="cta"><a class="btn solid" href="https://github.com/mkor4y/koklm">Kodu incele</a><a class="btn" href="#parametre">Hesaplayıcıyı aç</a></div>
+<div class="chips"><span>PyTorch</span><span>Llama 3 uyumlu</span><span><b>34</b> test geçti</span><span>MIT</span></div>
+<div class="cta"><a class="btn pri" href="https://github.com/mkor4y/koklm">Kodu incele</a><a class="btn" href="#akis">Model içinde gez</a></div>
 </div>
-<div class="tree" id="tree" role="img" aria-label="KökLM bir ağaç gibi: token'lar köklerden girer, 16 transformer bloğundan oluşan gövdeden geçer, tepede sonraki token'ın olasılıkları oluşur."><svg id="treeSvg"></svg></div>
+<div class="stage" id="stage" role="img" aria-label="Döndürülebilir 3B transformer yığını: altta embedding ızgarası, ortada 16 blok (mor: attention, camgöbeği: SwiGLU FFN), üstte çıkış halkası. Token'lar ışık olarak aşağıdan yukarı akar."><canvas id="stageC"></canvas><span class="hint">sürükle, döndür</span></div>
 </div></header>
 
-<section class="band" id="mimari"><div class="wrap">
-<div class="sec-head"><h2>Bir token'ın modeldeki yolculuğu</h2><p class="lead">Her durak gerçek koddaki bir bileşen. Durağa dokununca denklemini, tensör şeklini ve Llama 3.2 1B ayarında kaç parametre tuttuğunu görürsün.</p></div>
-<ol class="route" id="route"></ol>
+<section class="band" id="akis"><div class="wrap">
+<div class="sec-head" data-r><h2>Bir token'ın <span class="gt">modeldeki yolculuğu</span></h2><p class="lead">Işık, gerçek koddaki bileşenler arasında ilerliyor. Bir durağa dokununca denklemini, tensör şeklini ve Llama 3.2 1B ayarında kaç parametre tuttuğunu görürsün.</p></div>
+<div class="glass flow" data-r>
+<div class="flowfig" id="flowfig"><svg id="flowSvg"></svg></div>
 <div class="detail" id="detail"></div>
+</div>
 </div></section>
 
-<section class="band" id="parametre" style="background:var(--panel)"><div class="wrap">
-<div class="sec-head"><h2>Milyar parametreyi kalem kalem say</h2><p class="lead">Aynı formül kodda <code>koklm/analiz.py</code> içinde. Bir ayar seç ya da boyutları değiştir; toplam, bellek, hesap ve nöron sayısı anında güncellenir.</p></div>
+<section class="band" id="parametre"><div class="wrap">
+<div class="sec-head" data-r><h2>Milyar parametreyi <span class="gt">kalem kalem say</span></h2><p class="lead">Aynı formül kodda <code>koklm/analiz.py</code> içinde. Bir ayar seç ya da boyutları değiştir; toplam, bellek, hesap ve nöron sayısı anında güncellenir.</p></div>
 <div class="calc">
-<div class="ctrl" style="background:var(--bg)">
+<div class="glass ctrl" data-r>
 <div class="presets" id="presets"><button data-p="kucuk">Küçük</button><button data-p="1B">1B</button><button data-p="8B">8B</button></div>
 <label class="row"><span class="top">Gizli boyut d<output id="o_d"></output></span><input type="range" id="i_d" min="128" max="8192" step="128"></label>
 <label class="row"><span class="top">Blok sayısı L<output id="o_L"></output></span><input type="range" id="i_L" min="1" max="80" step="1"></label>
@@ -195,8 +208,8 @@ footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justi
 <label class="check"><input type="checkbox" id="i_tied">Çıkış katmanı = embedding (tied)</label>
 <label class="row"><span class="top">Bağlam T (KV-cache, FLOP)<output id="o_T"></output></span><input type="range" id="i_T" min="9" max="17" step="1"></label>
 </div>
-<div class="res">
-<div class="total"><div><div class="big" id="totBig">0</div><div class="sub" id="totSub"></div></div><div class="sub" id="totB" style="text-align:right;font:800 28px 'Sofia Sans Condensed',sans-serif;color:var(--redink)"></div></div>
+<div class="glass res" data-r data-d="1">
+<div class="total"><div><div class="big gt" id="totBig">0</div><div class="sub" id="totSub"></div></div><div class="bil" id="totB"></div></div>
 <div><div class="waffle" id="waffle" aria-label="Parametrelerin 200 kareye dağılımı"></div><div class="legend" id="legend"></div></div>
 <div class="bars" id="bars"></div>
 <div class="grid3" id="stats"></div>
@@ -205,21 +218,21 @@ footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justi
 </div></section>
 
 <section class="band" id="matematik"><div class="wrap">
-<div class="sec-head"><h2>Matematik, oynanabilir hâliyle</h2><p class="lead">Her kartta bileşenin denklemi ve onu çalışırken gösteren küçük bir deney var. Türetimlerin tamamı repodaki <code>docs/matematik.md</code> dosyasında.</p></div>
+<div class="sec-head" data-r><h2>Matematik, <span class="gt">oynanabilir hâliyle</span></h2><p class="lead">Her kartta bileşenin denklemi ve onu çalışırken gösteren bir deney var. Türetimlerin tamamı repodaki <code>docs/matematik.md</code> dosyasında.</p></div>
 <div class="math">
 
-<div class="card">
+<div class="glass card" data-r>
 <h3>RMSNorm: ölçeği sabitle</h3>
 <div class="eq">RMSNorm(x) = x / √(mean(x²) + ε) ⊙ g</div>
-<p>Ortalama çıkarılmaz, sadece büyüklük 1'e çekilir. Yön korunur, patlama önlenir.</p>
+<p>Ortalama çıkarılmaz, sadece büyüklük 1'e çekilir. Yön korunur, değerler patlamaz.</p>
 <div class="fig" style="min-height:220px"><svg id="rmsSvg"></svg></div>
 <div class="minirow"><button class="btn" id="rmsBtn">Yeni vektör</button><span class="small" id="rmsTxt"></span></div>
 </div>
 
-<div class="card">
+<div class="glass card" data-r data-d="1">
 <h3>RoPE: konumu döndürerek ekle</h3>
 <div class="eq">⟨R(m)q, R(n)k⟩ = qᵀ R(n−m) k</div>
-<p>Her vektör çifti konumuyla orantılı açıda döner. Skor yalnızca <b>aradaki mesafeye</b> bağlı kalır.</p>
+<p>Her vektör çifti konumuyla orantılı açıda döner. Skor yalnızca <b style="color:var(--ink)">aradaki mesafeye</b> bağlı kalır.</p>
 <div class="fig" style="min-height:240px"><svg id="ropeSvg"></svg></div>
 <div class="minirow">
 <label class="row"><span class="top">q konumu m<output id="o_m">6</output></span><input type="range" id="i_m2" min="0" max="40" value="6"></label>
@@ -229,29 +242,29 @@ footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justi
 <p class="small" id="ropeTxt" style="margin-top:8px"></p>
 </div>
 
-<div class="card wide">
+<div class="glass card wide" data-r>
 <h3>RoPE frekans saatleri: hızlıdan yavaşa</h3>
 <p>dh = 16 boyutlu bir kafada 8 çift var. Çift i, konum başına ωᵢ = θ<sup>−2i/dh</sup> radyan döner. Hızlı saatler yakın ilişkiyi, yavaş saatler uzak bağlamı kodlar. Llama 3'ün θ = 500.000 seçimi en yavaş saati iyice yavaşlatır.</p>
 <div class="fig" style="min-height:170px"><svg id="clockSvg"></svg></div>
-<div class="minirow"><span class="small">Konum m = <b id="clockM">0</b></span><button class="btn" id="clockBtn">Durdur</button></div>
+<div class="minirow"><span class="small">Konum m = <b id="clockM" style="color:var(--c)">0</b></span><button class="btn" id="clockBtn">Durdur</button></div>
 </div>
 
-<div class="card">
+<div class="glass card" data-r>
 <h3>Nedensel attention</h3>
 <div class="eq">A = softmax(QKᵀ/√dh + M)·V</div>
 <p>Maske M geleceği −∞ yapar: her token sadece kendinden öncekilere bakar. √dh'ye bölmek softmax'ın doymasını önler.</p>
 <div class="fig" style="min-height:300px"><svg id="attSvg"></svg></div>
-<div class="minirow"><button class="btn" id="attBtn">Yeni Q ve K</button><span class="small">Koyu kare = yüksek dikkat, taralı = maske</span></div>
+<div class="minirow"><button class="btn" id="attBtn">Yeni Q ve K</button><span class="small">Parlak kare = yüksek dikkat, taralı = maske</span></div>
 </div>
 
-<div class="card">
+<div class="glass card" data-r data-d="1">
 <h3>Grouped-Query Attention</h3>
 <div class="eq">H = 32 sorgu kafası → Hkv = 8 K/V kafası</div>
 <p>Her 4 sorgu kafası tek bir K/V kafasını paylaşır. K/V parametreleri ve üretimdeki KV-cache belleği 4 kat küçülür.</p>
 <div class="fig" style="min-height:300px"><svg id="gqaSvg"></svg></div>
 </div>
 
-<div class="card">
+<div class="glass card" data-r>
 <h3>SwiGLU: kapılı FFN</h3>
 <div class="eq">FFN(x) = (SiLU(xW₁) ⊙ xW₃)·W₂
 SiLU(u) = u·σ(u)</div>
@@ -259,7 +272,7 @@ SiLU(u) = u·σ(u)</div>
 <div class="fig" style="min-height:230px"><svg id="siluSvg"></svg></div>
 </div>
 
-<div class="card">
+<div class="glass card" data-r data-d="1">
 <h3>FFN boyutu nereden geliyor?</h3>
 <p>Klasik FFN 4d genişlikte 2 matris kullanır. SwiGLU 3 matris kullandığı için parametreyi eşitlemek adına ⅔ ile çarpılır, sonra GPU dostu bir sayıya yuvarlanır.</p>
 <div class="scroll"><table>
@@ -268,7 +281,7 @@ SiLU(u) = u·σ(u)</div>
 <tr><td>4d</td><td class="n">8.192</td><td class="n">16.384</td></tr>
 <tr><td>× ⅔</td><td class="n">5.461</td><td class="n">10.922</td></tr>
 <tr><td>× çarpan (1,5 / 1,3)</td><td class="n">8.191</td><td class="n">14.198</td></tr>
-<tr><td>yukarı yuvarla (256 / 1024)</td><td class="n"><b>8.192</b></td><td class="n"><b>14.336</b></td></tr>
+<tr><td>yukarı yuvarla (256 / 1024)</td><td class="n"><b class="gt">8.192</b></td><td class="n"><b class="gt">14.336</b></td></tr>
 </tbody></table></div>
 <div class="eq">N = V·d + L·[2d² + 2d·Hkv·dh + 3df + 2d] + d (+ d·V)</div>
 <p>Bu formül 1B için 1.235.814.400, 8B için 8.030.261.248 verir; Meta'nın açıkladığı sayılarla birebir.</p>
@@ -277,30 +290,30 @@ SiLU(u) = u·σ(u)</div>
 </div>
 </div></section>
 
-<section class="band" id="egitim" style="background:var(--panel)"><div class="wrap">
-<div class="sec-head"><h2>Eğitim: kayıp 5,79'dan 0,93'e</h2><p class="lead">Aşağıdaki eğri uydurma değil: GitHub Actions'taki uçtan uca testin gerçek çıktısı. Küçük model, BPE tokenizer ve tek bir masal cümlesiyle 30 adım eğitildi.</p></div>
+<section class="band" id="egitim"><div class="wrap">
+<div class="sec-head" data-r><h2>Eğitim: kayıp <span class="gt">5,79'dan 0,93'e</span></h2><p class="lead">Aşağıdaki eğri uydurma değil: GitHub Actions'taki uçtan uca testin gerçek çıktısı. Küçük model, BPE tokenizer ve tek bir masal cümlesiyle 30 adım eğitildi.</p></div>
 <div class="split">
-<div class="card" style="background:var(--bg)"><h3>Kayıp eğrisi</h3><div class="fig" style="min-height:300px"><svg id="lossSvg"></svg></div><p class="small"><b style="color:var(--redink)">Kırmızı:</b> eğitim kaybı · <b>kesikli:</b> doğrulama kaybı. Kaynak: CI, 30 adım, kucuk model (2,9 milyon parametre). Başlangıç ≈ ln(300) = 5,70.</p></div>
-<div class="card" style="background:var(--bg)"><h3>Öğrenme oranı planı</h3><div class="fig" style="min-height:300px"><svg id="lrSvg"></svg></div><p class="small">Varsayılan ayar: 200 adım ısınma, 3·10⁻⁴ tepe, 5.000 adımda 3·10⁻⁵'e kosinüs iniş.</p></div>
+<div class="glass card" data-r><h3>Kayıp eğrisi</h3><div class="fig" style="min-height:300px"><svg id="lossSvg"></svg></div><p class="small"><b style="color:var(--c)">Camgöbeği:</b> eğitim kaybı · <b style="color:#c4b5fd">mor kesikli:</b> doğrulama kaybı. Kaynak: CI, 30 adım, kucuk model (2,9 milyon parametre). Başlangıç ≈ ln(300) = 5,70.</p></div>
+<div class="glass card" data-r data-d="1"><h3>Öğrenme oranı planı</h3><div class="fig" style="min-height:300px"><svg id="lrSvg"></svg></div><p class="small">Varsayılan ayar: 200 adım ısınma, 3·10⁻⁴ tepe, 5.000 adımda 3·10⁻⁵'e kosinüs iniş.</p></div>
 </div>
-<div class="math" style="margin-top:22px">
-<div class="card" style="background:var(--bg)"><h3>AdamW</h3><div class="eq">m ← β₁m + (1−β₁)g
+<div class="math" style="margin-top:20px">
+<div class="glass card" data-r><h3>AdamW</h3><div class="eq">m ← β₁m + (1−β₁)g
 v ← β₂v + (1−β₂)g²
 θ ← θ − η(m̂/(√v̂+ε) + λθ)</div><p>β₁ = 0,9 · β₂ = 0,95 · λ = 0,1. Ağırlık azaltma sadece matrislere, norm vektörlerine değil.</p></div>
-<div class="card" style="background:var(--bg)"><h3>Başlangıç ve hesap</h3><div class="eq">W ~ 𝒩(0, 0,02²)
+<div class="glass card" data-r data-d="1"><h3>Başlangıç ve hesap</h3><div class="eq">W ~ 𝒩(0, 0,02²)
 W_o, W₂ ~ 𝒩(0, (0,02/√2L)²)
 eğitim ≈ 6N FLOP / token</div><p>Residual'a yazan katmanlar √2L ile küçülür; böylece 2L katkının toplamı derinlik arttıkça patlamaz. 1B'yi 1 trilyon token ile eğitmek ≈ 7,4·10²¹ FLOP.</p></div>
 </div>
 </div></section>
 
 <section class="band" id="tokenizer"><div class="wrap">
-<div class="sec-head"><h2>Tokenizer'ı canlı izle</h2><p class="lead">KökLM'in sıfırdan yazılmış BPE algoritması tarayıcında, aşağıdaki Türkçe metin üzerinde eğitiliyor. Birleştirme sayısını artırdıkça baytlar hecelere, heceler kelimelere dönüşür.</p></div>
-<div class="split">
+<div class="sec-head" data-r><h2>Tokenizer'ı <span class="gt">canlı izle</span></h2><p class="lead">KökLM'in sıfırdan yazılmış BPE algoritması tarayıcında, Türkçe bir metin üzerinde eğitiliyor. Birleştirme sayısını artırdıkça baytlar hecelere, heceler kelimelere dönüşür.</p></div>
+<div class="glass split" style="padding:clamp(18px,2.6vw,30px)" data-r>
 <div>
 <label class="row"><span class="top">Metin</span><textarea id="bpeIn" rows="4">Bir varmış bir yokmuş, evvel zaman içinde kalbur saman içinde, develer tellal iken pireler berber iken.</textarea></label>
 <div class="minirow">
 <label class="row"><span class="top">Birleştirme<output id="o_merge">0</output></span><input type="range" id="i_merge" min="0" max="120" value="60"></label>
-<button class="btn" id="bpePlay">Oynat</button>
+<button class="btn pri" id="bpePlay">Oynat</button>
 </div>
 <div class="grid3" id="bpeStats" style="margin-top:14px"></div>
 </div>
@@ -312,55 +325,61 @@ eğitim ≈ 6N FLOP / token</div><p>Residual'a yazan katmanlar √2L ile küçü
 </div>
 </div></section>
 
-<section class="band" id="olcek" style="background:var(--panel)"><div class="wrap">
-<div class="sec-head"><h2>Ölçek: beyne daha çok yol var</h2><p class="lead">Logaritmik ölçek: her çizgi 10 kat demek. İnsan beyninin yaklaşık 100 trilyon sinapsı, bugünün en büyük modellerinin bile 30 katı kadar.</p></div>
-<div class="bars scale" id="scale"></div>
-<div class="grid3" style="margin-top:28px">
-<div class="stat" style="background:var(--bg)"><b>458.752</b><span>KökLM 8B'nin FFN nöronu (32 blok × 14.336)</span></div>
-<div class="stat" style="background:var(--bg)"><b>≈ 17.500</b><span>8B'de nöron başına parametre ("bağlantı")</span></div>
-<div class="stat" style="background:var(--bg)"><b>≈ 86 milyar</b><span>insan beynindeki nöron (tahmin)</span></div>
-<div class="stat" style="background:var(--bg)"><b>≈ 20 W</b><span>beynin güç tüketimi; büyük modeller megavatlarla eğitilir</span></div>
+<section class="band" id="olcek"><div class="wrap">
+<div class="sec-head" data-r><h2>Ölçek: <span class="gt">beyne daha çok yol var</span></h2><p class="lead">Logaritmik ölçek: her adım 10 kat demek. İnsan beyninin yaklaşık 100 trilyon sinapsı, bugünün en büyük modellerinin bile 30 katı kadar.</p></div>
+<div class="glass" style="padding:clamp(18px,2.6vw,30px)" data-r><div class="scale" id="scale"></div></div>
+<div class="grid3" style="margin-top:16px">
+<div class="stat glass" data-r><b class="gt" data-count="458752">458.752</b><span>KökLM 8B'nin FFN nöronu (32 blok × 14.336)</span></div>
+<div class="stat glass" data-r data-d="1"><b>≈ 17.500</b><span>8B'de nöron başına parametre ("bağlantı")</span></div>
+<div class="stat glass" data-r data-d="2"><b>≈ 86 milyar</b><span>insan beynindeki nöron (tahmin)</span></div>
+<div class="stat glass" data-r data-d="3"><b>≈ 20 W</b><span>beynin güç tüketimi; büyük modeller megavatlarla eğitilir</span></div>
 </div>
 <p class="small" style="margin-top:16px">Kapalı modellerin boyutları resmi olarak açıklanmaz. Grok 4.8, Qwen 3.8 ve 10T değerleri 2026 basın haberlerindeki bildirimlerdir; beyin değerleri yaklaşık tahminlerdir. Parametre ile sinaps bire bir eşdeğer değildir.</p>
 </div></section>
 
 <section class="band" id="dogrulama"><div class="wrap">
-<div class="sec-head"><h2>Her iddia bir testle kanıtlı</h2><p class="lead">34 test, her push'ta GitHub Actions'ta Python 3.10 ve 3.12 üzerinde çalışır. En güçlüsü: aynı ağırlıklar verildiğinde KökLM, Hugging Face'in Llama uygulamasıyla aynı çıktıyı üretir.</p></div>
+<div class="sec-head" data-r><h2>Her iddia <span class="gt">bir testle kanıtlı</span></h2><p class="lead">34 test, her push'ta GitHub Actions'ta Python 3.10 ve 3.12 üzerinde çalışır. En güçlüsü: aynı ağırlıklar verildiğinde KökLM, Hugging Face'in Llama uygulamasıyla aynı çıktıyı üretir.</p></div>
 <div class="tests" id="tests"></div>
-<h3 style="margin:44px 0 16px">Yol haritası</h3>
+<h3 style="margin:56px 0 18px;font-size:30px" data-r>Yol haritası</h3>
 <ul class="road">
-<li class="ok">Llama 3 mimarisi<small>RMSNorm, RoPE, GQA, SwiGLU, KV-cache</small></li>
-<li class="ok">Eğitim altyapısı<small>AdamW, bf16, DDP, checkpoint</small></li>
-<li class="ok">Gerçek Llama ağırlıkları<small>Meta ve Hugging Face formatları</small></li>
-<li class="ok">Sıfırdan BPE<small>saf Python tokenizer</small></li>
-<li>FSDP ile 8B<small>çok GPU'ya bölünmüş eğitim</small></li>
-<li>Türkçe ön-eğitim<small>ölçekleme deneyleri</small></li>
-<li>Sohbet ince ayarı<small>SFT ve LoRA</small></li>
-<li>Nicemleme<small>int8 / int4 çıkarım</small></li>
+<li class="glass ok" data-r><span>Tamamlandı</span>Llama 3 mimarisi<small>RMSNorm, RoPE, GQA, SwiGLU, KV-cache</small></li>
+<li class="glass ok" data-r data-d="1"><span>Tamamlandı</span>Eğitim altyapısı<small>AdamW, bf16, DDP, checkpoint</small></li>
+<li class="glass ok" data-r data-d="2"><span>Tamamlandı</span>Gerçek Llama ağırlıkları<small>Meta ve Hugging Face formatları</small></li>
+<li class="glass ok" data-r data-d="3"><span>Tamamlandı</span>Sıfırdan BPE<small>saf Python tokenizer</small></li>
+<li class="glass" data-r><span>Sırada</span>FSDP ile 8B<small>çok GPU'ya bölünmüş eğitim</small></li>
+<li class="glass" data-r data-d="1"><span>Sırada</span>Türkçe ön-eğitim<small>ölçekleme deneyleri</small></li>
+<li class="glass" data-r data-d="2"><span>Sırada</span>Sohbet ince ayarı<small>SFT ve LoRA</small></li>
+<li class="glass" data-r data-d="3"><span>Sırada</span>Nicemleme<small>int8 / int4 çıkarım</small></li>
 </ul>
 </div></section>
 
-<section class="band cta-band"><div class="wrap">
-<div><h2 style="color:#fff">Kendin dene</h2><p style="color:#d8ccc6;margin-top:14px">Kodu indir, testleri çalıştır, ister Llama 3.2 1B ağırlıklarını KökLM'de çalıştır, ister kendi Türkçe modelini sıfırdan eğit.</p><div class="cta"><a class="btn solid" style="background:var(--red);border-color:var(--red);color:#120d0b" href="https://github.com/mkor4y/koklm">GitHub'da aç</a></div></div>
+<section class="band"><div class="wrap">
+<div class="glass cta-box" data-r>
+<div><h2>Kendin <span class="gt">dene</span></h2><p style="color:#cfd5ec;margin-top:14px">Kodu indir, testleri çalıştır; ister Llama 3.2 1B ağırlıklarını KökLM'de çalıştır, ister kendi Türkçe modelini sıfırdan eğit.</p><div class="cta"><a class="btn pri" href="https://github.com/mkor4y/koklm">GitHub'da aç</a></div></div>
 <pre>git clone https://github.com/mkor4y/koklm
 cd koklm && pip install -e ".[dev]"
 pytest
 python scripts/parametre_say.py 1B</pre>
+</div>
 </div></section>
+</main>
 
-<footer><span><b>Mustafa Koray KÖK</b> · Van YYÜ Bilgisayar Mühendisliği</span><span>KökLM · MIT lisansı · Mimari Meta Llama 3'ten esinlenmiştir</span></footer>
+<footer><span><b style="color:var(--ink)">Mustafa Koray KÖK</b> · Van YYÜ Bilgisayar Mühendisliği</span><span>KökLM · MIT lisansı · Mimari Meta Llama 3'ten esinlenmiştir</span></footer>
 
 <script>
 {
+document.documentElement.classList.add("js");
 const $=s=>document.querySelector(s);
-const NS="http://www.w3.org/2000/svg";
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const fmt=n=>Math.round(n).toLocaleString("tr-TR");
-const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let seed=7;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
 const gauss=()=>{let u=0,v=0;while(!u)u=rnd();while(!v)v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)};
 function onResize(el,fn){const ro=new ResizeObserver(()=>fn());ro.observe(el);return ro}
+const C="#22d3ee",V="#8b5cf6",B="#3b82f6",P="#f472b6";
+const visible=new Set();
+const vio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)visible.add(e.target);else visible.delete(e.target)}),{rootMargin:"80px"});
+const isOn=el=>visible.has(el);
 
 /* ---------- Model hesapları (koklm/analiz.py ile aynı) ---------- */
 const PRESET={
@@ -375,57 +394,84 @@ function hesap(c,T){
  return{dh,kv,f,att,mlp,norm,blok,emb,out,N,attT:c.L*att,mlpT:c.L*mlp,normT:c.L*norm+c.d,
   ffnNeuron:c.L*f,allNeuron:c.L*(3*c.d+2*kv+2*f)+c.V,
   kvBytes:2*c.L*c.Hkv*dh*T*2,fwd:2*N+2*c.L*T*c.d}}
-window.__koklm={hesap,ffn,PRESET};
 
-/* ---------- Kahraman: ağaç ---------- */
+/* ---------- Canlı nöral ağ arka planı ---------- */
 {
-const box=$("#tree"),svg=$("#treeSvg");
-const toks=["Bir","varmış","bir","yok"];
-const cand=[["muş",.71],["tu",.12],["sa",.06]];
-let geo=null,parts=[],raf=0;
-function bez(p0,p1,p2,p3,t){const u=1-t;return[u*u*u*p0[0]+3*u*u*t*p1[0]+3*u*t*t*p2[0]+t*t*t*p3[0],u*u*u*p0[1]+3*u*u*t*p1[1]+3*u*t*t*p2[1]+t*t*t*p3[1]]}
-function draw(){
- const W=box.clientWidth,H=box.clientHeight;if(!W||!H)return;
- const ink="#120d0b",cx=W*.5,tw=Math.min(W*.46,320),L=16;
- const top=H*.25,ground=H*.79,sh=(ground-top)/L,aw=tw*.172;
- seed=11;let s="";
- // kökler
- const roots=toks.map((t,i)=>{const x=cx+(i-1.5)*Math.min(W*.22,150),y=H*.95;const bx=cx+(i-1.5)*tw*.16;
-  return{t,p0:[x,y-22],p1:[x,ground+(y-ground)*.2],p2:[bx,ground+20],p3:[bx,ground]}});
- for(let k=0;k<26;k++){const r=roots[k%4];const a=[r.p3[0]+(rnd()-.5)*tw*.5,ground];const b=[a[0]+(rnd()-.5)*W*.35,ground+(H-ground)*(.35+rnd()*.5)];
-  s+=`<path d="M${a[0]},${a[1]} C${a[0]},${a[1]+20} ${b[0]},${b[1]-24} ${b[0]},${b[1]}" fill="none" stroke="${ink}" stroke-opacity=".28" stroke-width="${1+rnd()*1.6}"/>`}
- roots.forEach(r=>{s+=`<path d="M${r.p0[0]},${r.p0[1]} C${r.p1[0]},${r.p1[1]} ${r.p2[0]},${r.p2[1]} ${r.p3[0]},${r.p3[1]}" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round"/>`;
-  s+=`<rect x="${r.p0[0]-38}" y="${r.p0[1]-2}" width="76" height="28" rx="14" fill="${ink}"/><text x="${r.p0[0]}" y="${r.p0[1]+17}" text-anchor="middle" fill="#fff" font-size="14" font-weight="600">${r.t}</text>`});
- s+=`<line x1="${cx-tw*.9}" x2="${cx+tw*.9}" y1="${ground}" y2="${ground}" stroke="${ink}" stroke-width="2"/>`;
- // gövde: 16 blok, attention/FFN gerçek oranında
- for(let i=0;i<L;i++){const y=ground-(i+1)*sh+2,h=sh-4,x=cx-tw/2;
-  s+=`<rect x="${x}" y="${y}" width="${aw-2}" height="${h}" rx="3" fill="${ink}"/><rect x="${x+aw}" y="${y}" width="${tw-aw}" height="${h}" rx="3" fill="#fff"/><rect x="${x+aw}" y="${y+h-3}" width="${tw-aw}" height="3" fill="${ink}" fill-opacity=".12"/>`}
- const lx=cx+tw/2+12;
- if(W>460){s+=`<text x="${lx}" y="${ground-sh*2}" font-size="14" font-weight="600" fill="${ink}">16 blok</text><text x="${lx}" y="${ground-sh*2+18}" font-size="13" fill="${ink}">beyaz: SwiGLU FFN %83</text><text x="${lx}" y="${ground-sh*2+35}" font-size="13" fill="${ink}">siyah: attention %17</text>`}
- // taç: sonraki token olasılıkları
- const bx0=cx-tw/2,bw=tw*1.05,rowH=Math.min(26,(top-34)/3.4);
- s+=`<text x="${bx0}" y="${top-rowH*3.5-8}" font-size="13" font-weight="600" fill="${ink}">sonraki token (örnek)</text>`;
- const crown=cand.map(([t,p],j)=>{const y=top-rowH*(3.3-j*1.1);s+=`<rect x="${bx0}" y="${y}" width="${bw*p}" height="${rowH*.78}" rx="4" fill="${j?"#fff":ink}"/><text x="${bx0+bw*p+8}" y="${y+rowH*.6}" font-size="14" font-weight="600" fill="${ink}">${t} · %${Math.round(p*100)}</text>`;return[bx0+bw*p*.5,y+rowH*.4]});
- s+=`<g id="parts"></g>`;svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;
- geo={roots,crown,cx,tw,aw,top,ground,sh,L};
- parts=Array.from({length:Math.min(46,Math.round(W/12))},(_,i)=>({r:i%4,t:i/46,c:i%7===0?0:(i%3?1:2),sp:.0016+rnd()*.0012}));
- const g=svg.querySelector("#parts");g.innerHTML=parts.map(()=>`<circle r="4.5" fill="#fff" stroke="#120d0b" stroke-width="2"/>`).join("");
- parts.forEach((p,i)=>p.el=g.children[i]);step(0,true)}
-function pos(p){const G=geo,r=G.roots[p.r],t=p.t;
- if(t<.28)return bez(r.p0,r.p1,r.p2,r.p3,t/.28);
- if(t<.9){const u=(t-.28)/.62,y=G.ground-u*(G.ground-G.top),blk=Math.floor(u*G.L),inA=blk%2===0;
-  const x=G.cx-G.tw/2+(inA?G.aw*.5:G.aw+(G.tw-G.aw)*(.25+.5*((p.r+blk)%4)/3));
-  const k=(u*G.L)%1,prev=G.cx-G.tw/2+(!inA?G.aw*.5:G.aw+(G.tw-G.aw)*(.25+.5*((p.r+blk-1+4)%4)/3));
-  return[prev+(x-prev)*Math.min(1,k*3),y]}
- const u=(t-.9)/.1,c=G.crown[p.c];const s=[G.cx,G.top];return[s[0]+(c[0]-s[0])*u,s[1]+(c[1]-s[1])*u]}
-function step(dt,once){if(!geo)return;for(const p of parts){if(!once)p.t=(p.t+p.sp*dt/16)%1;const[x,y]=pos(p);p.el.setAttribute("cx",x.toFixed(1));p.el.setAttribute("cy",y.toFixed(1));p.el.setAttribute("opacity",p.t>.97?(1-p.t)*33:1)}}
-let last=0;function loop(ts){step(last?Math.min(50,ts-last):0);last=ts;raf=requestAnimationFrame(loop)}
-onResize(box,draw);if(!reduce)raf=requestAnimationFrame(loop);
-// sayaç
-const el=$("#heroCount"),N=1235814400;if(!reduce){const t0=performance.now();const tick=t=>{const k=Math.min(1,(t-t0)/2200),e=1-Math.pow(1-k,4);el.textContent=fmt(N*e);if(k<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+const cv=$("#net"),ctx=cv.getContext("2d");let W=0,H=0,dpr=1,nodes=[],pulses=[],mouse={x:-1e4,y:-1e4};
+function size(){dpr=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+ const n=Math.round(Math.min(110,W*H/14000));nodes=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:1+Math.random()*1.8,h:Math.random()}))}
+addEventListener("resize",size);size();
+addEventListener("pointermove",e=>{mouse.x=e.clientX;mouse.y=e.clientY},{passive:true});
+document.addEventListener("pointerleave",()=>{mouse.x=mouse.y=-1e4});
+const col=h=>h<.5?`${34+(139-34)*h*2|0},${211-(211-92)*h*2|0},${238+(246-238)*h*2|0}`:`${139+(244-139)*(h-.5)*2|0},${92+(114-92)*(h-.5)*2|0},${246-(246-182)*(h-.5)*2|0}`;
+const D=150;
+function frame(){ctx.clearRect(0,0,W,H);
+ for(const a of nodes){if(!reduce){a.x+=a.vx;a.y+=a.vy;if(a.x<-20)a.x=W+20;if(a.x>W+20)a.x=-20;if(a.y<-20)a.y=H+20;if(a.y>H+20)a.y=-20;
+  const dx=mouse.x-a.x,dy=mouse.y-a.y,dd=Math.hypot(dx,dy);if(dd<200&&dd>1){a.x+=dx/dd*.35;a.y+=dy/dd*.35}}}
+ ctx.lineWidth=1;
+ for(let i=0;i<nodes.length;i++){const a=nodes[i];for(let j=i+1;j<nodes.length;j++){const b=nodes[j],dx=a.x-b.x,dy=a.y-b.y;if(Math.abs(dx)>D||Math.abs(dy)>D)continue;const d=Math.hypot(dx,dy);if(d<D){ctx.strokeStyle=`rgba(${col((a.h+b.h)/2)},${(1-d/D)*.32})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+   if(!reduce&&Math.random()<.0007&&pulses.length<26)pulses.push({a,b,t:0})}}
+  const md=Math.hypot(mouse.x-a.x,mouse.y-a.y);if(md<180){ctx.strokeStyle=`rgba(244,114,182,${(1-md/180)*.5})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(mouse.x,mouse.y);ctx.stroke()}}
+ for(const a of nodes){ctx.fillStyle=`rgba(${col(a.h)},.9)`;ctx.beginPath();ctx.arc(a.x,a.y,a.r,0,7);ctx.fill()}
+ ctx.globalCompositeOperation="lighter";
+ pulses=pulses.filter(p=>{p.t+=.018;if(p.t>1)return false;const x=p.a.x+(p.b.x-p.a.x)*p.t,y=p.a.y+(p.b.y-p.a.y)*p.t;const g=ctx.createRadialGradient(x,y,0,x,y,9);g.addColorStop(0,"rgba(255,255,255,.95)");g.addColorStop(.3,`rgba(${col(p.a.h)},.7)`);g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fill();return true});
+ ctx.globalCompositeOperation="source-over";
+ if(!reduce)requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
 }
 
-/* ---------- Mimari güzergahı ---------- */
+/* ---------- 3B transformer yığını (kendi canvas motorumuz) ---------- */
+{
+const st=$("#stage"),cv=$("#stageC"),ctx=cv.getContext("2d");let W=0,H=0,dpr=1,yaw=.6,pitch=-.42,vy=reduce?0:.0035,drag=null,tm=0;
+vio.observe(st);
+function size(){dpr=Math.min(2,devicePixelRatio||1);W=st.clientWidth;H=st.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+const L=16,y0=-2.05,gap=.27,sh=.15,X0=-2,X1=2,Z=1.15,split=X0+(X1-X0)*.172;
+function box(x0,x1,y,h,z){return[[x0,y,-z],[x1,y,-z],[x1,y+h,-z],[x0,y+h,-z],[x0,y,z],[x1,y,z],[x1,y+h,z],[x0,y+h,z]]}
+const FACES=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[3,2,6,7],[0,3,7,4],[1,2,6,5]];
+const slabs=[];for(let i=0;i<L;i++){const y=y0+i*gap;slabs.push({i,v:box(X0,split-.03,y,sh,Z),c:[139,92,246]},{i,v:box(split+.03,X1,y,sh,Z),c:[34,211,238]})}
+const emb=[];for(let a=0;a<10;a++)for(let b=0;b<4;b++)emb.push([X0+.2+a*.4,y0-.75,-Z+.29+b*.57]);
+const ring=[];for(let k=0;k<48;k++){const t=k/48*Math.PI*2;ring.push([Math.cos(t)*1.8,y0+L*gap+.55,Math.sin(t)*1.1])}
+const parts=Array.from({length:70},(_,i)=>({t:Math.random(),e:i%emb.length,s:.0018+Math.random()*.0016,ph:Math.random()*6.28,o:(i%2?1:-1)*(.3+Math.random()*1.3)}));
+function proj(p){const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+ const x=p[0]*cy-p[2]*sy,z=p[0]*sy+p[2]*cy,y=p[1];const y2=y*cp-z*sp,z2=y*sp+z*cp;const D=9.5,f=Math.min(W*1.05,H*1.25);const k=f/(D+z2);return[W/2+x*k,H*.53-y2*k,z2,k]}
+function glow(x,y,r,c,a){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(255,255,255,${a})`);g.addColorStop(.25,`rgba(${c},${a*.8})`);g.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill()}
+function draw(){if(!W)return;ctx.clearRect(0,0,W,H);
+ const wave=(tm*.00045)%1.25*L;
+ const base=proj([0,y0-.8,0]);const g0=ctx.createRadialGradient(base[0],base[1],0,base[0],base[1],W*.45);g0.addColorStop(0,"rgba(139,92,246,.22)");g0.addColorStop(1,"rgba(139,92,246,0)");ctx.fillStyle=g0;ctx.fillRect(0,0,W,H);
+ ctx.globalCompositeOperation="lighter";
+ emb.forEach((p,i)=>{const q=proj(p);glow(q[0],q[1],q[3]*.13,i%3?"34,211,238":"139,92,246",.55+.35*Math.sin(tm*.003+i))});
+ ctx.globalCompositeOperation="source-over";
+ const faces=[];slabs.forEach(s=>{const Pp=s.v.map(proj);const lit=Math.max(0,1-Math.abs(s.i-wave)/1.6);FACES.forEach((f,fi)=>{const z=f.reduce((a,k)=>a+Pp[k][2],0)/4;faces.push({P:Pp,f,z,c:s.c,lit,fi})})});
+ faces.sort((a,b)=>b.z-a.z);
+ for(const F of faces){ctx.beginPath();F.f.forEach((k,j)=>{const p=F.P[k];j?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])});ctx.closePath();
+  const shade=F.fi===3?1.25:F.fi===2?.55:.85;const a=(.13+F.lit*.42)*shade;
+  ctx.fillStyle=`rgba(${F.c[0]},${F.c[1]},${F.c[2]},${a})`;ctx.fill();
+  ctx.strokeStyle=`rgba(${Math.min(255,F.c[0]+80)},${Math.min(255,F.c[1]+60)},255,${.35+F.lit*.6})`;ctx.lineWidth=1+F.lit*1.2;ctx.stroke()}
+ ctx.globalCompositeOperation="lighter";
+ ring.forEach((p,i)=>{const q=proj(p);glow(q[0],q[1],q[3]*.09,"244,114,182",.45+.4*Math.sin(tm*.004+i*.5))});
+ const topY=y0+L*gap+.55;
+ for(const p of parts){const e=emb[p.e];let pt;
+  if(p.t<.15){const u=p.t/.15;pt=[e[0]*(1-u*.7),e[1]+u*.7,e[2]*(1-u*.7)]}
+  else if(p.t<.85){const u=(p.t-.15)/.7,y=y0-.05+u*(L*gap+.1),ang=p.ph+u*5;pt=[Math.cos(ang)*p.o,y,Math.sin(ang)*Math.min(.9,Math.abs(p.o))*.8]}
+  else{const u=(p.t-.85)/.15,r=ring[(p.e*7)%48];const s=[Math.cos(p.ph+5)*p.o,topY-.5,0];pt=[s[0]+(r[0]-s[0])*u,s[1]+(r[1]-s[1])*u,s[2]+(r[2]-s[2])*u]}
+  const q=proj(pt);glow(q[0],q[1],q[3]*.14,p.t>.85?"244,114,182":"165,243,252",.95)}
+ ctx.globalCompositeOperation="source-over";
+ if(W>380){ctx.font="600 13px Inter,sans-serif";ctx.textAlign="left";
+  let rx=0;for(const F of faces)for(const k of F.f)rx=Math.max(rx,F.P[k][0]);rx=Math.min(rx+18,W-200);
+  const lab=(p,t,s,c)=>{const q=proj([0,p[1],0]);const x=rx;ctx.strokeStyle="rgba(255,255,255,.25)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-6,q[1]-4);ctx.lineTo(x-14,q[1]-4);ctx.stroke();ctx.fillStyle=c;ctx.fillText(t,x,q[1]);if(s){ctx.fillStyle="#8d95b5";ctx.font="12px Inter,sans-serif";ctx.fillText(s,x,q[1]+16);ctx.font="600 13px Inter,sans-serif"}};
+  lab([2.35,topY,0],"Çıkış","128.256 olasılık","#f9a8d4");
+  lab([2.35,y0+L*gap*.55,0],"16 transformer bloğu","mor: attention · mavi: FFN","#e8ebf7");
+  lab([2.35,y0-.8,0],"Embedding","token → 2048 boyut","#a5f3fc")}
+}
+function loop(t){if(isOn(st)||!tm){tm=t;if(!drag)yaw+=vy;for(const p of parts)p.t=(p.t+p.s)%1;draw()}requestAnimationFrame(loop)}
+st.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY,yaw,pitch};st.setPointerCapture(e.pointerId)});
+st.addEventListener("pointermove",e=>{if(!drag)return;yaw=drag.yaw+(e.clientX-drag.x)*.008;pitch=Math.max(-1.1,Math.min(.25,drag.pitch+(e.clientY-drag.y)*.005));if(reduce)draw()});
+const end=()=>{drag=null};st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end);
+onResize(st,size);if(reduce){tm=1;draw()}else requestAnimationFrame(loop);
+const el=$("#heroCount"),N=1235814400;if(!reduce){const t0=performance.now();const tick=t=>{const k=Math.min(1,(t-t0)/2400),e=1-Math.pow(1-k,4);el.textContent=fmt(N*e);if(k<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+}
+
+/* ---------- Veri akışı: ışık durakları dolaşır ---------- */
 {
 const c1B=hesap(PRESET["1B"],2048);
 const ST=[
@@ -438,25 +484,38 @@ const ST=[
  {k:"×",ad:"16 kez",eq:"h_{l+1} = h' + FFN(RMSNorm(h'))",sh:"16 blok",p:16*c1B.blok,t:"Aynı blok 16 kez üst üste dizilir. Toplam 973 milyon parametre."},
  {k:"O",ad:"Çıkış",eq:"z = RMSNorm(h)·Eᵀ   (tied)",sh:"(B, T, 128256)",p:2048,t:"Son gizli durum sözlükteki her token için bir puana çevrilir. Tied: embedding tablosu tekrar kullanılır."},
  {k:"p",ad:"Örnekleme",eq:"p = softmax(z/τ),  top-p = 0,9",sh:"(B, 1)",p:0,t:"Puanlar olasılığa dönüşür, en olası çekirdekten bir token seçilir ve başa eklenir (KV-cache ile)."}];
-const route=$("#route"),det=$("#detail");
-route.innerHTML=ST.map((s,i)=>`<li><button type="button" data-i="${i}" aria-pressed="false"><span class="dot">${s.k}</span><span class="nm">${s.ad}</span></button></li>`).join("");
-let cur=0,auto=!reduce,timer=0,t0=0;
-function show(i){cur=i;route.querySelectorAll("button").forEach((b,j)=>b.setAttribute("aria-pressed",j===i));const s=ST[i];
- det.innerHTML=`<div><h3>${s.ad}</h3><div class="eq">${esc(s.eq)}</div><p>${esc(s.t)}</p><div class="prog" ${auto?"":"hidden"}><i id="pg"></i></div></div><div class="facts"><div class="fact"><b>${s.p?fmt(s.p):"0"}</b><span>parametre (Llama 3.2 1B)</span></div><div class="fact"><b style="font-size:22px">${esc(s.sh)}</b><span>tensör şekli</span></div><div class="fact"><b>${s.p?(100*s.p/c1B.N).toFixed(1).replace(".",",")+"%":"—"}</b><span>modelin payı</span></div></div>`;t0=performance.now()}
-route.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;auto=false;show(+b.dataset.i)});
-show(0);
-function tick(t){if(auto){const k=(t-t0)/3200;const pg=$("#pg");if(pg)pg.style.width=Math.min(100,k*100)+"%";if(k>=1)show((cur+1)%ST.length);timer=requestAnimationFrame(tick)}}
-if(auto)timer=requestAnimationFrame(tick);
+const fig=$("#flowfig"),svg=$("#flowSvg"),det=$("#detail");vio.observe(fig);
+let pts=[],cur=0,auto=!reduce,t0=performance.now(),pathEl=null,lens=[],dot=null,halo=null;
+function layout(){const W=fig.clientWidth,H=fig.clientHeight,n=ST.length;if(!W)return;const vert=W<700;
+ pts=ST.map((s,i)=>vert?[W*(i%2?.66:.34),40+i*(H-80)/(n-1)]:[60+i*(W-120)/(n-1),H*.42+Math.sin(i*1.15)*H*.2]);
+ let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=1;i<n;i++){const a=pts[i-1],b=pts[i];d+=vert?` C${a[0]},${(a[1]+b[1])/2} ${b[0]},${(a[1]+b[1])/2} ${b[0]},${b[1]}`:` C${(a[0]+b[0])/2},${a[1]} ${(a[0]+b[0])/2},${b[1]} ${b[0]},${b[1]}`}
+ let s=`<defs><linearGradient id="fg" x1="0" x2="${vert?0:1}" y1="0" y2="${vert?1:0}"><stop offset="0" stop-color="${C}"/><stop offset=".5" stop-color="${V}"/><stop offset="1" stop-color="${P}"/></linearGradient><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+ s+=`<path d="${d}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10" stroke-linecap="round"/><path id="fp" d="${d}" fill="none" stroke="url(#fg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 12" opacity=".9">${reduce?"":`<animate attributeName="stroke-dashoffset" from="0" to="-28" dur="1s" repeatCount="indefinite"/>`}</path>`;
+ ST.forEach((st,i)=>{const[x,y]=pts[i];const lx=vert?(i%2?x+34:x-34):x,ly=vert?y+5:y+(Math.sin(i*1.15)>0?-36:46),an=vert?(i%2?"start":"end"):"middle";
+  s+=`<g class="node" data-i="${i}" tabindex="0" role="button" aria-label="${st.ad}"><circle class="bg" cx="${x}" cy="${y}" r="24" fill="#0a0d1f" stroke="url(#fg)" stroke-width="2"/><circle class="ring" cx="${x}" cy="${y}" r="30" fill="none" stroke="${C}" stroke-width="2" opacity="0" filter="url(#gl)"/><text x="${x}" y="${y+6}" text-anchor="middle" font-size="18" font-weight="700" fill="#e8ebf7">${st.k}</text><text x="${lx}" y="${ly}" text-anchor="${an}" font-size="14" font-weight="600" fill="#cfd5ec">${st.ad}</text></g>`});
+ s+=`<circle id="fh" r="22" fill="${C}" opacity=".3" filter="url(#gl)"/><circle id="fd" r="7" fill="#fff" filter="url(#gl)"/>`;
+ svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;pathEl=svg.querySelector("#fp");dot=svg.querySelector("#fd");halo=svg.querySelector("#fh");
+ const total=pathEl.getTotalLength();lens=pts.map(p=>{let best=0,bd=1e9;for(let l=0;l<=total;l+=total/400){const q=pathEl.getPointAtLength(l),dd=(q.x-p[0])**2+(q.y-p[1])**2;if(dd<bd){bd=dd;best=l}}return best});
+ mark();move(0)}
+function mark(){svg.querySelectorAll(".node").forEach((g,j)=>{const on=j===cur;g.querySelector(".ring").setAttribute("opacity",on?1:0);g.querySelector(".bg").setAttribute("fill",on?"#2e1065":"#0a0d1f")})}
+function move(k){if(!pathEl||!lens.length)return;const a=lens[cur],b=lens[(cur+1)%ST.length];const l=cur===ST.length-1?a:a+(b-a)*k;const q=pathEl.getPointAtLength(l);dot.setAttribute("cx",q.x);dot.setAttribute("cy",q.y);halo.setAttribute("cx",q.x);halo.setAttribute("cy",q.y)}
+function show(i){cur=i;const s=ST[i];mark();move(0);
+ det.innerHTML=`<div><h3 class="gt">${s.ad}</h3><div class="eq">${esc(s.eq)}</div><p style="color:#cfd5ec">${esc(s.t)}</p><div class="prog" ${auto?"":"hidden"}><i id="pg"></i></div></div><div class="facts"><div class="fact"><b>${s.p?fmt(s.p):"0"}</b><span>parametre (Llama 3.2 1B)</span></div><div class="fact" style="border-color:${C}"><b style="font-size:21px">${esc(s.sh)}</b><span>tensör şekli</span></div><div class="fact" style="border-color:${P}"><b>${s.p?(100*s.p/c1B.N).toFixed(1).replace(".",",")+"%":"—"}</b><span>modelin payı</span></div></div>`;t0=performance.now()}
+svg.addEventListener("click",e=>{const g=e.target.closest(".node");if(!g)return;auto=false;show(+g.dataset.i)});
+svg.addEventListener("keydown",e=>{const g=e.target.closest(".node");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();auto=false;show(+g.dataset.i)}});
+onResize(fig,layout);show(0);
+function tick(t){if(auto&&isOn(fig)){const k=(t-t0)/3400;const pg=$("#pg");if(pg)pg.style.width=Math.min(100,k*100)+"%";move(Math.max(0,(k-.55)/.45));if(k>=1)show((cur+1)%ST.length)}else if(auto)t0=t-((t-t0)%3400);if(auto)requestAnimationFrame(tick)}
+if(auto)requestAnimationFrame(tick);
 }
 
 /* ---------- Parametre hesaplayıcı ---------- */
 {
 const st={...PRESET["1B"],T:2048,preset:"1B"};
 const ids={d:$("#i_d"),L:$("#i_L"),H:$("#i_H"),Hkv:$("#i_Hkv"),V:$("#i_V"),m:$("#i_m"),tied:$("#i_tied"),T:$("#i_T")};
-const COLS=[["Embedding","emb","#ff4a1c"],["Attention","attT","#120d0b"],["SwiGLU FFN","mlpT","#ff9f7a"],["Çıkış","out","#8a7f7a"],["Norm","normT","#d9cfca"]];
+const COLS=[["Embedding","emb",P],["Attention","attT",V],["SwiGLU FFN","mlpT",C],["Çıkış","out",B],["Norm","normT","#64748b"]];
 const waffle=$("#waffle");waffle.innerHTML="<i></i>".repeat(200);
-$("#legend").innerHTML=COLS.slice(0,4).map(c=>`<span><i style="background:${c[2]}"></i>${c[0]}</span>`).join("");
-let shown=0,anim=0;
+$("#legend").innerHTML=COLS.slice(0,4).map(c=>`<span><i style="background:${c[2]};box-shadow:0 0 8px ${c[2]}"></i>${c[0]}</span>`).join("");
+let shown=0,anim=0,first=true;
 function heads(){const opts=[];for(let h=1;h<=128;h++){if(st.d%h===0&&(st.d/h)%2===0&&st.d/h>=16&&st.d/h<=256)opts.push(h)}
  if(!opts.includes(st.H))st.H=opts.reduce((a,b)=>Math.abs(b-st.H)<Math.abs(a-st.H)?b:a,opts[0]);
  ids.H.innerHTML=opts.map(h=>`<option value="${h}" ${h===st.H?"selected":""}>${h} kafa · dh = ${st.d/h}</option>`).join("");
@@ -470,14 +529,13 @@ function render(){
  document.querySelectorAll("#presets button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===st.preset));
  const r=hesap(st,st.T),N=r.N;
  const from=shown,t0=performance.now();cancelAnimationFrame(anim);
- const run=t=>{const k=reduce?1:Math.min(1,(t-t0)/700),e=1-Math.pow(1-k,3);shown=from+(N-from)*e;$("#totBig").textContent=fmt(shown);if(k<1)anim=requestAnimationFrame(run)};anim=requestAnimationFrame(run);
+ const run=t=>{const k=reduce?1:Math.min(1,(t-t0)/(first?1600:700)),e=1-Math.pow(1-k,3);shown=from+(N-from)*e;$("#totBig").textContent=fmt(shown);if(k<1)anim=requestAnimationFrame(run)};anim=requestAnimationFrame(run);first=false;
  $("#totSub").textContent=`parametre · dh = ${r.dh} · FFN f = ${fmt(r.f)}`;
  $("#totB").textContent=N>=1e9?(N/1e9).toFixed(2).replace(".",",")+" milyar":(N/1e6).toFixed(1).replace(".",",")+" milyon";
- // waffle
- let acc=[],sum=0;COLS.slice(0,4).forEach(c=>{acc.push([c[2],r[c[1]]]);sum+=r[c[1]]});
- const cells=[];acc.forEach(([col,v])=>{const n=Math.round(200*v/sum);for(let i=0;i<n;i++)cells.push(col)});while(cells.length<200)cells.push(acc[2][0]);
- [...waffle.children].forEach((el,i)=>{setTimeout(()=>el.style.background=cells[i],reduce?0:i*3)});
- $("#bars").innerHTML=COLS.map(c=>`<div class="bar"><span>${c[0]}</span><span class="tr"><i style="width:${(100*r[c[1]]/N).toFixed(2)}%;background:${c[2]}"></i></span><span class="v">${fmt(r[c[1]])}</span></div>`).join("");
+ let sum=0;const acc=COLS.slice(0,4).map(c=>{sum+=r[c[1]];return[c[2],r[c[1]]]});
+ const cells=[];acc.forEach(([col,v])=>{const n=Math.round(200*v/sum);for(let i=0;i<n;i++)cells.push(col)});while(cells.length<200)cells.push(C);
+ [...waffle.children].forEach((el,i)=>{setTimeout(()=>{el.style.background=cells[i];el.style.boxShadow=`0 0 6px ${cells[i]}66`},reduce?0:i*4)});
+ $("#bars").innerHTML=COLS.map(c=>`<div class="bar"><span>${c[0]}</span><span class="tr"><i style="width:${(100*r[c[1]]/N).toFixed(2)}%;background:${c[2]};box-shadow:0 0 12px ${c[2]}"></i></span><span class="v">${fmt(r[c[1]])}</span></div>`).join("");
  const S=[[bytes(N*2),"ağırlık belleği (bf16)"],[bytes(N*.5),"ağırlık belleği (int4)"],[bytes(N*16),"AdamW ile eğitim belleği"],[bytes(r.kvBytes),`KV-cache, T = ${fmt(st.T)} (bf16)`],[(r.fwd/1e9).toFixed(2).replace(".",",")+" GFLOP","token başına ileri hesap"],[fmt(r.ffnNeuron),"FFN nöronu (L × f)"],[fmt(r.allNeuron),"tüm katman çıkış birimi"],["≈ "+fmt(N/r.ffnNeuron),"FFN nöronu başına parametre"],[fmt(r.blok),"tek bloktaki parametre"]];
  $("#stats").innerHTML=S.map(s=>`<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("")}
 $("#presets").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;Object.assign(st,PRESET[b.dataset.p],{preset:b.dataset.p});render()});
@@ -490,7 +548,9 @@ ids.V.addEventListener("change",()=>{st.V=+ids.V.value;custom();render()});
 ids.m.addEventListener("change",()=>{st.m=ids.m.value;custom();render()});
 ids.tied.addEventListener("change",()=>{st.tied=ids.tied.checked;custom();render()});
 ids.T.addEventListener("input",()=>{st.T=2**+ids.T.value;render()});
-render();
+const res=document.querySelector(".res");let started=false;
+const io=new IntersectionObserver(es=>{if(es[0].isIntersecting&&!started){started=true;render()}},{threshold:.15});io.observe(res);
+setTimeout(()=>{if(!started){started=true;render()}},4000);
 }
 
 /* ---------- RMSNorm demo ---------- */
@@ -499,8 +559,8 @@ const box=$("#rmsSvg").parentNode,svg=$("#rmsSvg");let x=[];
 function gen(){x=Array.from({length:10},()=>gauss()*(.4+rnd()*2.6))}
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const rms=Math.sqrt(x.reduce((a,v)=>a+v*v,0)/x.length);const y=x.map(v=>v/rms);
  const mx=Math.max(3,...x.map(Math.abs),...y.map(Math.abs));const half=W/2,bw=(half-30)/x.length,mid=H/2,sc=(H/2-28)/mx;
- let s=`<text x="10" y="18" font-size="13" fill="currentColor" opacity=".7">x (rms = ${rms.toFixed(2).replace(".",",")})</text><text x="${half+10}" y="18" font-size="13" fill="currentColor" opacity=".7">RMSNorm(x) (rms = 1)</text>`;
- [0,half].forEach((ox,k)=>{s+=`<line x1="${ox+10}" x2="${ox+half-10}" y1="${mid}" y2="${mid}" stroke="currentColor" stroke-opacity=".25"/>`;(k?y:x).forEach((v,i)=>{const h=v*sc;s+=`<rect x="${ox+14+i*bw}" width="${bw-4}" y="${h>0?mid-h:mid}" height="${Math.abs(h)}" rx="2" fill="${k?"#ff4a1c":"currentColor"}" fill-opacity="${k?1:.75}"/>`})});
+ let s=`<defs><linearGradient id="rg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${C}"/><stop offset="1" stop-color="${V}"/></linearGradient></defs><text x="10" y="18" font-size="13" fill="#8d95b5">x (rms = ${rms.toFixed(2).replace(".",",")})</text><text x="${half+10}" y="18" font-size="13" fill="#8d95b5">RMSNorm(x) (rms = 1)</text>`;
+ [0,half].forEach((ox,k)=>{s+=`<line x1="${ox+10}" x2="${ox+half-10}" y1="${mid}" y2="${mid}" stroke="rgba(255,255,255,.15)"/>`;(k?y:x).forEach((v,i)=>{const h=v*sc;s+=`<rect x="${ox+14+i*bw}" width="${bw-4}" y="${h>0?mid-h:mid}" height="${Math.abs(h)}" rx="3" fill="${k?"url(#rg)":"rgba(255,255,255,.35)"}" style="${k?`filter:drop-shadow(0 0 6px ${C}88)`:""}"/>`})});
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;$("#rmsTxt").textContent=`Büyüklük ${rms.toFixed(2).replace(".",",")} → 1,00, yön aynı.`}
 gen();onResize(box,draw);$("#rmsBtn").addEventListener("click",()=>{gen();draw()});
 }
@@ -511,16 +571,17 @@ const box=$("#ropeSvg").parentNode,svg=$("#ropeSvg"),w=.35,aq=.5,ak=1.6,lq=1,lk=
 const im=$("#i_m2"),inn=$("#i_n2");
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const m=+im.value,n=+inn.value;
  $("#o_m").textContent=m;$("#o_n").textContent=n;[im,inn].forEach(r=>r.style.setProperty("--p",(100*r.value/r.max)+"%"));
- const R=Math.min(W*.3,H/2-24),cx=Math.min(W*.35,R+30),cy=H/2;const A=aq+m*w,B=ak+n*w;const dot=lq*lk*Math.cos(A-B);
- const pt=(a,l)=>[cx+Math.cos(a)*R*l,cy-Math.sin(a)*R*l];const[qx,qy]=pt(A,lq),[kx,ky]=pt(B,lk);
- let s=`<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="context-stroke"/></marker></defs>`;
- s+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="currentColor" stroke-opacity=".18"/><circle cx="${cx}" cy="${cy}" r="3" fill="currentColor"/>`;
- const a0=Math.min(A,B),a1=Math.max(A,B),big=(a1-a0)%(2*Math.PI)>Math.PI?1:0;const p0=pt(a0,.32),p1=pt(a1,.32);
- s+=`<path d="M${p0[0]},${p0[1]} A${R*.32},${R*.32} 0 ${big} 0 ${p1[0]},${p1[1]}" fill="none" stroke="#ff4a1c" stroke-width="2"/>`;
- s+=`<line x1="${cx}" y1="${cy}" x2="${qx}" y2="${qy}" stroke="#ff4a1c" stroke-width="4" marker-end="url(#ah)"/><line x1="${cx}" y1="${cy}" x2="${kx}" y2="${ky}" stroke="currentColor" stroke-width="4" marker-end="url(#ah)"/>`;
- const[lqx,lqy]=pt(A,1.17),[lkx,lky]=pt(B,.45);
- s+=`<text x="${lqx}" y="${lqy+5}" text-anchor="middle" font-size="16" font-weight="800" fill="#ff4a1c">q</text><circle cx="${lkx}" cy="${lky}" r="11" style="fill:var(--panel)"/><text x="${lkx}" y="${lky+5}" text-anchor="middle" font-size="15" font-weight="800" fill="currentColor">k</text>`;
- const tx=cx+R+36;if(tx+120<W){s+=`<text x="${tx}" y="${cy-18}" font-size="14" fill="currentColor" opacity=".7">m − n</text><text x="${tx}" y="${cy+8}" font-size="28" font-weight="800" fill="currentColor">${m-n}</text><text x="${tx}" y="${cy+40}" font-size="14" fill="currentColor" opacity=".7">q·k</text><text x="${tx}" y="${cy+66}" font-size="28" font-weight="800" fill="#ff4a1c">${dot.toFixed(3).replace(".",",")}</text>`}
+ const R=Math.min(W*.3,H/2-24),cx=Math.min(W*.35,R+30),cy=H/2;const A=aq+m*w,Bk=ak+n*w;const dot=lq*lk*Math.cos(A-Bk);
+ const pt=(a,l)=>[cx+Math.cos(a)*R*l,cy-Math.sin(a)*R*l];const[qx,qy]=pt(A,lq),[kx,ky]=pt(Bk,lk);
+ let s=`<defs><marker id="ahq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${C}"/></marker><marker id="ahk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${P}"/></marker></defs>`;
+ for(let k=0;k<36;k++){const a=k/36*Math.PI*2,[x1,y1]=pt(a,1),[x2,y2]=pt(a,k%3?.96:.92);s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,.18)"/>`}
+ s+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="rgba(139,92,246,.4)" style="filter:drop-shadow(0 0 8px ${V})"/><circle cx="${cx}" cy="${cy}" r="3" fill="#fff"/>`;
+ const a0=Math.min(A,Bk),a1=Math.max(A,Bk),big=(a1-a0)%(2*Math.PI)>Math.PI?1:0;const p0=pt(a0,.32),p1=pt(a1,.32);
+ s+=`<path d="M${p0[0]},${p0[1]} A${R*.32},${R*.32} 0 ${big} 0 ${p1[0]},${p1[1]}" fill="none" stroke="${V}" stroke-width="2.5"/>`;
+ s+=`<line x1="${cx}" y1="${cy}" x2="${qx}" y2="${qy}" stroke="${C}" stroke-width="4" marker-end="url(#ahq)" style="filter:drop-shadow(0 0 6px ${C})"/><line x1="${cx}" y1="${cy}" x2="${kx}" y2="${ky}" stroke="${P}" stroke-width="4" marker-end="url(#ahk)" style="filter:drop-shadow(0 0 6px ${P})"/>`;
+ const[lqx,lqy]=pt(A,1.17),[lkx,lky]=pt(Bk,.45);
+ s+=`<text x="${lqx}" y="${lqy+5}" text-anchor="middle" font-size="16" font-weight="700" fill="${C}">q</text><circle cx="${lkx}" cy="${lky}" r="11" fill="#0a0d1f"/><text x="${lkx}" y="${lky+5}" text-anchor="middle" font-size="15" font-weight="700" fill="${P}">k</text>`;
+ const tx=cx+R+36;if(tx+120<W){s+=`<text x="${tx}" y="${cy-18}" font-size="14" fill="#8d95b5">m − n</text><text x="${tx}" y="${cy+10}" font-size="30" font-weight="700" fill="#e8ebf7" font-family="Space Grotesk">${m-n}</text><text x="${tx}" y="${cy+42}" font-size="14" fill="#8d95b5">q·k</text><text x="${tx}" y="${cy+72}" font-size="30" font-weight="700" fill="${C}" font-family="Space Grotesk">${dot.toFixed(3).replace(".",",")}</text>`}
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;
  $("#ropeTxt").textContent=`m − n = ${m-n} → q·k = ${dot.toFixed(3).replace(".",",")}. "İkisini kaydır" ile konumlar değişir ama fark ve skor aynı kalır.`}
 [im,inn].forEach(r=>r.addEventListener("input",draw));
@@ -530,13 +591,14 @@ onResize(box,draw);
 
 /* ---------- Frekans saatleri ---------- */
 {
-const box=$("#clockSvg").parentNode,svg=$("#clockSvg");let m=0,run=!reduce,hands=[],last=0;const dh=16,theta=10000;
+const box=$("#clockSvg").parentNode,svg=$("#clockSvg");let m=0,run=!reduce,hands=[],last=0;const dh=16,theta=10000;vio.observe(box);
 const om=Array.from({length:dh/2},(_,i)=>Math.pow(theta,-2*i/dh));
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const n=om.length,cols=W<520?4:8,rows=Math.ceil(n/cols),cw=W/cols,ch=H/rows,r=Math.min(cw,ch)/2-22;
- let s="";om.forEach((w,i)=>{const cx=cw*(i%cols)+cw/2,cy=ch*Math.floor(i/cols)+ch/2-8;s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="2"/><line class="hd" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r}" stroke="${i===0?"#ff4a1c":"currentColor"}" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="3" fill="currentColor"/><text x="${cx}" y="${cy+r+17}" text-anchor="middle" font-size="13" fill="currentColor">i=${i}</text>`});
- svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;hands=[...svg.querySelectorAll(".hd")].map((el,i)=>({el,cx:+el.getAttribute("x1"),cy:+el.getAttribute("y1"),r}));upd()}
+ let s="";om.forEach((w,i)=>{const cx=cw*(i%cols)+cw/2,cy=ch*Math.floor(i/cols)+ch/2-8,hue=i/(n-1);const col=hue<.5?C:hue<.8?V:P;
+  s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(255,255,255,.03)" stroke="${col}" stroke-opacity=".45" stroke-width="2" style="filter:drop-shadow(0 0 6px ${col}66)"/><line class="hd" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r}" stroke="${col}" stroke-width="3" stroke-linecap="round" style="filter:drop-shadow(0 0 5px ${col})"/><circle cx="${cx}" cy="${cy}" r="3" fill="#fff"/><text x="${cx}" y="${cy+r+17}" text-anchor="middle" font-size="13" fill="#8d95b5">i=${i}</text>`});
+ svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;hands=[...svg.querySelectorAll(".hd")].map(el=>({el,cx:+el.getAttribute("x1"),cy:+el.getAttribute("y1"),r}));upd()}
 function upd(){hands.forEach((h,i)=>{const a=m*om[i];h.el.setAttribute("x2",h.cx+Math.sin(a)*h.r);h.el.setAttribute("y2",h.cy-Math.cos(a)*h.r)});$("#clockM").textContent=Math.floor(m)}
-function loop(t){if(run){m+=(last?Math.min(50,t-last):0)/180;upd()}last=t;requestAnimationFrame(loop)}
+function loop(t){if(run&&isOn(box)){m+=(last?Math.min(50,t-last):0)/180;upd()}last=t;requestAnimationFrame(loop)}
 onResize(box,draw);requestAnimationFrame(loop);
 const b=$("#clockBtn");b.textContent=run?"Durdur":"Oynat";b.addEventListener("click",()=>{run=!run;b.textContent=run?"Durdur":"Oynat"});
 }
@@ -547,10 +609,10 @@ const box=$("#attSvg").parentNode,svg=$("#attSvg");const T=["Bir","var","mış",
 function gen(){const q=T.map(()=>Array.from({length:dh},gauss)),k=T.map(()=>Array.from({length:dh},gauss));
  A=q.map((qi,i)=>{const sc=k.map((kj,j)=>j>i?-Infinity:qi.reduce((a,v,d)=>a+v*kj[d],0)/Math.sqrt(dh)*1.6);const mx=Math.max(...sc.filter(isFinite));const e=sc.map(v=>isFinite(v)?Math.exp(v-mx):0);const z=e.reduce((a,b)=>a+b,0);return e.map(v=>v/z)})}
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const lab=46,c=Math.min((W-lab-8)/n,(H-lab-8)/n),ox=lab+(W-lab-c*n)/2-lab/2,oy=lab;
- let s=`<defs><pattern id="hx" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-opacity=".22" stroke-width="2"/></pattern></defs>`;
- T.forEach((t,i)=>{s+=`<text x="${ox-8}" y="${oy+i*c+c/2+5}" text-anchor="end" font-size="13" fill="currentColor">${t}</text><text x="${ox+i*c+c/2}" y="${oy-10}" text-anchor="middle" font-size="13" fill="currentColor">${t}</text>`});
- A.forEach((row,i)=>row.forEach((v,j)=>{const x=ox+j*c,y=oy+i*c;s+=j>i?`<rect x="${x+1}" y="${y+1}" width="${c-2}" height="${c-2}" fill="url(#hx)"/>`:`<rect class="cell" data-r="${i}" x="${x+1}" y="${y+1}" width="${c-2}" height="${c-2}" rx="3" fill="#ff4a1c" fill-opacity="${(.08+.92*v).toFixed(3)}"/>`}));
- s+=`<rect id="scan" x="${ox}" y="${oy}" width="${c*n}" height="${c}" fill="none" stroke="currentColor" stroke-width="2.5" rx="4"/>`;
+ let s=`<defs><pattern id="hx" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,.12)" stroke-width="2"/></pattern></defs>`;
+ T.forEach((t,i)=>{s+=`<text x="${ox-8}" y="${oy+i*c+c/2+5}" text-anchor="end" font-size="13" fill="#cfd5ec">${t}</text><text x="${ox+i*c+c/2}" y="${oy-10}" text-anchor="middle" font-size="13" fill="#cfd5ec">${t}</text>`});
+ A.forEach((row,i)=>row.forEach((v,j)=>{const x=ox+j*c,y=oy+i*c;s+=j>i?`<rect x="${x+1}" y="${y+1}" width="${c-2}" height="${c-2}" fill="url(#hx)"/>`:`<rect x="${x+1.5}" y="${y+1.5}" width="${c-3}" height="${c-3}" rx="4" fill="${v>.5?P:v>.2?V:C}" fill-opacity="${(.1+.9*v).toFixed(3)}" style="${v>.4?`filter:drop-shadow(0 0 6px ${P})`:""}"/>`}));
+ s+=`<rect id="scan" x="${ox}" y="${oy}" width="${c*n}" height="${c}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2" rx="5"/>`;
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;svg.dataset.c=c;svg.dataset.oy=oy}
 gen();onResize(box,draw);$("#attBtn").addEventListener("click",()=>{gen();draw()});
 if(!reduce)setInterval(()=>{scan=(scan+1)%n;const r=svg.querySelector("#scan");if(r)r.setAttribute("y",+svg.dataset.oy+scan*+svg.dataset.c)},900);
@@ -560,54 +622,58 @@ if(!reduce)setInterval(()=>{scan=(scan+1)%n;const r=svg.querySelector("#scan");i
 {
 const box=$("#gqaSvg").parentNode,svg=$("#gqaSvg");let ph=0;
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const qy=H*.2,ky=H*.78,mx=14,qs=(W-2*mx)/32,ks=(W-2*mx)/8;let s="";
- for(let g=0;g<8;g++){const kx=mx+ks*g+ks/2;for(let j=0;j<4;j++){const i=g*4+j,qx=mx+qs*i+qs/2;s+=`<path class="lk" data-g="${g}" d="M${qx},${qy+8} C${qx},${(qy+ky)/2} ${kx},${(qy+ky)/2} ${kx},${ky-14}" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="1.5"/>`}}
- for(let i=0;i<32;i++){const qx=mx+qs*i+qs/2;s+=`<circle class="q" data-g="${Math.floor(i/4)}" cx="${qx}" cy="${qy}" r="${Math.min(7,qs*.38)}" fill="currentColor"/>`}
- for(let g=0;g<8;g++){const kx=mx+ks*g+ks/2,w=Math.min(ks-8,54);s+=`<rect class="kv" data-g="${g}" x="${kx-w/2}" y="${ky-14}" width="${w}" height="28" rx="6" fill="currentColor" fill-opacity=".85"/><text x="${kx}" y="${ky+5}" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--bg)">KV${g+1}</text>`}
- s+=`<text x="${mx}" y="${qy-18}" font-size="13" fill="currentColor" opacity=".7">32 sorgu kafası (Q)</text><text x="${mx}" y="${ky+40}" font-size="13" fill="currentColor" opacity=".7">8 paylaşılan K/V kafası</text>`;
+ for(let g=0;g<8;g++){const kx=mx+ks*g+ks/2;for(let j=0;j<4;j++){const i=g*4+j,qx=mx+qs*i+qs/2;s+=`<path class="lk" data-g="${g}" d="M${qx},${qy+8} C${qx},${(qy+ky)/2} ${kx},${(qy+ky)/2} ${kx},${ky-14}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>`}}
+ for(let i=0;i<32;i++){const qx=mx+qs*i+qs/2;s+=`<circle class="q" data-g="${Math.floor(i/4)}" cx="${qx}" cy="${qy}" r="${Math.min(7,qs*.38)}" fill="${C}" fill-opacity=".55"/>`}
+ for(let g=0;g<8;g++){const kx=mx+ks*g+ks/2,w=Math.min(ks-8,54);s+=`<rect class="kv" data-g="${g}" x="${kx-w/2}" y="${ky-14}" width="${w}" height="28" rx="8" fill="${V}" fill-opacity=".55"/><text x="${kx}" y="${ky+5}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">KV${g+1}</text>`}
+ s+=`<text x="${mx}" y="${qy-18}" font-size="13" fill="#8d95b5">32 sorgu kafası (Q)</text><text x="${mx}" y="${ky+40}" font-size="13" fill="#8d95b5">8 paylaşılan K/V kafası</text>`;
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;hl()}
-function hl(){svg.querySelectorAll("[data-g]").forEach(el=>{const on=+el.dataset.g===ph;if(el.classList.contains("lk")){el.setAttribute("stroke",on?"#ff4a1c":"currentColor");el.setAttribute("stroke-opacity",on?1:.25);el.setAttribute("stroke-width",on?2.5:1.5)}else el.setAttribute("fill",on?"#ff4a1c":"currentColor")})}
+function hl(){svg.querySelectorAll("[data-g]").forEach(el=>{const on=+el.dataset.g===ph;if(el.classList.contains("lk")){el.setAttribute("stroke",on?P:"rgba(255,255,255,.18)");el.setAttribute("stroke-width",on?2.5:1.5);el.style.filter=on?`drop-shadow(0 0 5px ${P})`:""}else{el.setAttribute("fill-opacity",on?1:.55);el.style.filter=on?`drop-shadow(0 0 8px ${el.classList.contains("q")?C:V})`:""}})}
 onResize(box,draw);if(!reduce)setInterval(()=>{ph=(ph+1)%8;hl()},1100);
 }
 
 /* ---------- SiLU grafiği ---------- */
 {
-const box=$("#siluSvg").parentNode,svg=$("#siluSvg");
+const box=$("#siluSvg").parentNode,svg=$("#siluSvg");let done=false;
 function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const m={l:34,r:12,t:12,b:28},x0=-5,x1=5,y0=-1,y1=5;
  const X=v=>m.l+(v-x0)/(x1-x0)*(W-m.l-m.r),Y=v=>H-m.b-(v-y0)/(y1-y0)*(H-m.t-m.b);
  const path=f=>{let d="";for(let i=0;i<=120;i++){const v=x0+(x1-x0)*i/120;d+=(i?"L":"M")+X(v).toFixed(1)+","+Y(f(v)).toFixed(1)}return d};
- let s="";[-4,-2,0,2,4].forEach(v=>s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H-m.b}" stroke="currentColor" stroke-opacity=".08"/><text x="${X(v)}" y="${H-8}" text-anchor="middle" font-size="13" fill="currentColor" opacity=".7">${v}</text>`);
- [0,2,4].forEach(v=>s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="currentColor" stroke-opacity="${v?.08:.3}"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end" font-size="13" fill="currentColor" opacity=".7">${v}</text>`);
- const relu=path(v=>Math.max(0,v)),silu=path(v=>v/(1+Math.exp(-v)));
- s+=`<path d="${relu}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 5" opacity=".6"/><path d="${silu}" fill="none" stroke="#ff4a1c" stroke-width="3.5" pathLength="1" stroke-dasharray="1" stroke-dashoffset="${reduce?0:1}">${reduce?"":`<animate attributeName="stroke-dashoffset" from="1" to="0" dur="1.4s" fill="freeze"/>`}</path>`;
- s+=`<text x="${X(2.4)}" y="${Y(3.6)}" font-size="14" font-weight="700" fill="#ff4a1c">SiLU</text><text x="${X(-4.6)}" y="${Y(.35)}" font-size="13" fill="currentColor" opacity=".7">ReLU (kesikli)</text><text x="${X(-1.28)}" y="${Y(-.6)}" font-size="13" fill="currentColor">min ≈ −0,28</text>`;
+ let s="";[-4,-2,0,2,4].forEach(v=>s+=`<line x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(255,255,255,.06)"/><text x="${X(v)}" y="${H-8}" text-anchor="middle" font-size="13" fill="#8d95b5">${v}</text>`);
+ [0,2,4].forEach(v=>s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,${v?.06:.2})"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end" font-size="13" fill="#8d95b5">${v}</text>`);
+ const anim=!reduce&&!done;
+ s+=`<path d="${path(v=>Math.max(0,v))}" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-dasharray="5 5"/><path d="${path(v=>v/(1+Math.exp(-v)))}" fill="none" stroke="${C}" stroke-width="3.5" pathLength="1" stroke-dasharray="1" stroke-dashoffset="${anim?1:0}" style="filter:drop-shadow(0 0 8px ${C})">${anim?`<animate id="siluA" attributeName="stroke-dashoffset" from="1" to="0" dur="1.6s" fill="freeze" begin="indefinite"/>`:""}</path>`;
+ s+=`<text x="${X(2.4)}" y="${Y(3.6)}" font-size="14" font-weight="700" fill="${C}">SiLU</text><text x="${X(-4.6)}" y="${Y(.35)}" font-size="13" fill="#8d95b5">ReLU (kesikli)</text><text x="${X(-1.28)}" y="${Y(-.6)}" font-size="13" fill="#cfd5ec">min ≈ −0,28</text>`;
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s}
 onResize(box,draw);
+const io=new IntersectionObserver(es=>{if(es[0].isIntersecting&&!done){const a=svg.querySelector("#siluA");if(a&&a.beginElement)a.beginElement();setTimeout(()=>done=true,1700)}},{threshold:.4});io.observe(box);
+setTimeout(()=>{if(!done){const a=svg.querySelector("#siluA");if(a&&a.beginElement)a.beginElement();done=true}},8000);
 }
 
 /* ---------- Kayıp ve LR grafikleri ---------- */
-function lineChart(svg,series,o){const box=svg.parentNode;
- function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const m={l:52,r:W<520?14:86,t:16,b:34};
-  const X=v=>m.l+(v-o.x0)/(o.x1-o.x0)*(W-m.l-m.r),Y=v=>H-m.b-(v-o.y0)/(o.y1-o.y0)*(H-m.t-m.b);let s="";
-  o.yt.forEach(v=>s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="currentColor" stroke-opacity=".1"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end" font-size="13" fill="currentColor" opacity=".7">${o.yf(v)}</text>`);
-  o.xt.filter((v,i)=>W>=520||i%2===0).forEach(v=>s+=`<text x="${X(v)}" y="${H-10}" text-anchor="middle" font-size="13" fill="currentColor" opacity=".7">${o.xf(v)}</text>`);
-  if(W>=520)s+=`<text x="${X(o.x1)+22}" y="${H-10}" font-size="13" fill="currentColor" opacity=".7">${o.xl}</text>`;
+function lineChart(svg,series,o){const box=svg.parentNode;let played=false;
+ function draw(){const W=box.clientWidth,H=box.clientHeight;if(!W)return;const m={l:52,r:W<520?14:62,t:16,b:34};
+  const X=v=>m.l+(v-o.x0)/(o.x1-o.x0)*(W-m.l-m.r),Y=v=>H-m.b-(v-o.y0)/(o.y1-o.y0)*(H-m.t-m.b);
+  let s=`<defs><linearGradient id="ar${o.id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${C}" stop-opacity=".35"/><stop offset="1" stop-color="${V}" stop-opacity="0"/></linearGradient></defs>`;
+  o.yt.forEach(v=>s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,.07)"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end" font-size="13" fill="#8d95b5">${o.yf(v)}</text>`);
+  o.xt.filter((v,i)=>W>=520||i%2===0).forEach(v=>s+=`<text x="${X(v)}" y="${H-10}" text-anchor="middle" font-size="13" fill="#8d95b5">${o.xf(v)}</text>`);
   series.forEach(se=>{const d=se.p.map((p,i)=>(i?"L":"M")+X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1)).join("");
-   if(se.area)s+=`<path d="${d}L${X(se.p.at(-1)[0])},${Y(o.y0)}L${X(se.p[0][0])},${Y(o.y0)}Z" fill="#ff4a1c" fill-opacity=".12"/>`;
-   s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||3}" ${se.dash?'stroke-dasharray="6 5"':'pathLength="1" stroke-dasharray="1"'} stroke-dashoffset="${reduce||se.dash?0:1}">${reduce||se.dash?"":`<animate attributeName="stroke-dashoffset" from="1" to="0" dur="1.6s" fill="freeze"/>`}</path>`;
-   if(se.dots)se.p.forEach(p=>s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4.5" style="fill:var(--bg)" stroke="${se.c}" stroke-width="2.5"/>`);
-   const l=se.p.at(-1);if(W>=520&&se.lab)s+=`<text x="${X(l[0])+10}" y="${Y(l[1])+(se.dy||0)+4}" font-size="13" font-weight="700" fill="${se.c}">${se.lab}</text>`});
+   if(se.area)s+=`<path d="${d}L${X(se.p.at(-1)[0])},${Y(o.y0)}L${X(se.p[0][0])},${Y(o.y0)}Z" fill="url(#ar${o.id})"/>`;
+   const anim=!reduce&&!se.dash&&!played;
+   s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||3}" ${se.dash?'stroke-dasharray="6 5"':`pathLength="1" stroke-dasharray="1" stroke-dashoffset="${anim?1:0}"`} style="filter:drop-shadow(0 0 6px ${se.c})">${anim?`<animate class="la" attributeName="stroke-dashoffset" from="1" to="0" dur="1.8s" fill="freeze" begin="indefinite"/>`:""}</path>`;
+   if(se.dots)se.p.forEach(p=>s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4.5" fill="#05060f" stroke="${se.c}" stroke-width="2.5"/>`)});
   if(o.note)s+=o.note(X,Y,W);
   svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s}
- onResize(box,draw)}
+ onResize(box,draw);
+ const play=()=>{if(played)return;svg.querySelectorAll(".la").forEach(a=>a.beginElement&&a.beginElement());setTimeout(()=>played=true,1900)};
+ const io=new IntersectionObserver(es=>{if(es[0].isIntersecting)play()},{threshold:.4});io.observe(box);setTimeout(play,8000)}
 {
 const tr=[[0,5.7901],[5,4.1462],[10,2.3875],[15,1.5421],[20,1.158],[25,1.0071],[30,.9272]],va=[[10,2.3887],[20,1.2315],[30,.9412]];
-const f2=v=>v.toFixed(1).replace(".",",");
-lineChart($("#lossSvg"),[{p:tr,c:"#ff4a1c",dots:true,lab:"eğitim",area:true,dy:-8},{p:va,c:"currentColor",dots:true,lab:"doğrulama",dash:true,w:2,dy:12}],
- {x0:0,x1:30,y0:0,y1:6,xt:[0,5,10,15,20,25,30],yt:[0,2,4,6],xf:v=>v,yf:f2,xl:"adım",
-  note:(X,Y,W)=>W>=420?`<text x="${X(9)}" y="${Y(5.3)}" font-size="14" font-weight="700" fill="currentColor">5,79 → 0,93</text><text x="${X(9)}" y="${Y(5.3)+18}" font-size="13" fill="currentColor" opacity=".75">perplexity 2,6</text>`:""});
+const f1=v=>v.toFixed(1).replace(".",",");
+lineChart($("#lossSvg"),[{p:tr,c:C,dots:true,area:true},{p:va,c:"#c4b5fd",dots:true,dash:true,w:2}],
+ {id:"l",x0:0,x1:30,y0:0,y1:6,xt:[0,5,10,15,20,25,30],yt:[0,2,4,6],xf:v=>v,yf:f1,
+  note:(X,Y,W)=>W>=380?`<text x="${X(10.5)}" y="${Y(5.2)}" font-size="22" font-weight="700" fill="#e8ebf7" font-family="Space Grotesk">5,79 → 0,93</text><text x="${X(10.5)}" y="${Y(5.2)+20}" font-size="13" fill="#8d95b5">30 adımda · perplexity 2,6</text>`:""});
 const lr=[];for(let s=0;s<=5000;s+=25){let v;if(s<200)v=3e-4*(s+1)/200;else{const r=(s-200)/4800;v=3e-5+.5*(1+Math.cos(Math.PI*r))*(3e-4-3e-5)}lr.push([s,v*1e4])}
-lineChart($("#lrSvg"),[{p:lr,c:"#ff4a1c",area:true,lab:"η"}],{x0:0,x1:5000,y0:0,y1:3.2,xt:[0,1000,2000,3000,4000,5000],yt:[0,1,2,3],xf:v=>fmt(v),yf:v=>v?v+"e-4":"0",xl:"adım",
- note:(X,Y,W)=>W>=420?`<text x="${X(260)}" y="${Y(3.05)}" font-size="13" fill="currentColor">ısınma</text><text x="${X(2300)}" y="${Y(2.15)}" font-size="13" fill="currentColor">kosinüs iniş</text>`:""});
+lineChart($("#lrSvg"),[{p:lr,c:V,area:true}],{id:"r",x0:0,x1:5000,y0:0,y1:3.2,xt:[0,1000,2000,3000,4000,5000],yt:[0,1,2,3],xf:v=>fmt(v),yf:v=>v?v+"e-4":"0",
+ note:(X,Y,W)=>W>=380?`<text x="${X(260)}" y="${Y(3.05)}" font-size="13" fill="#cfd5ec">ısınma</text><text x="${X(2300)}" y="${Y(2.15)}" font-size="13" fill="#cfd5ec">kosinüs iniş</text>`:""});
 }
 
 /* ---------- BPE (koklm/bpe.py ile aynı algoritma) ---------- */
@@ -620,7 +686,7 @@ const CORPUS=("Bir varmış bir yokmuş, evvel zaman içinde kalbur saman içind
 "Model kelimeleri değil, sayıları görür. Tokenizer metni parçalara böler, her parçaya bir sayı verir. "+
 "Sık geçen harf çiftleri birleşir, heceler oluşur, heceler kelimelere dönüşür. ").repeat(3);
 const enc=new TextEncoder(),dec=new TextDecoder("utf-8",{fatal:false});
-function trainBPE(text,n){let chunks=new Map();for(const p of text.match(PAT)||[])chunks.set(p,(chunks.get(p)||0)+1);
+function trainBPE(text,n){const chunks=new Map();for(const p of text.match(PAT)||[])chunks.set(p,(chunks.get(p)||0)+1);
  let seqs=[...chunks].map(([p,f])=>[[...enc.encode(p)],f]);const merges=[];
  for(let k=0;k<n;k++){const cnt=new Map();for(const[ids,f]of seqs)for(let i=0;i<ids.length-1;i++){const key=ids[i]*65536+ids[i+1];cnt.set(key,(cnt.get(key)||0)+f)}
   let best=-1,bc=0;for(const[key,c]of cnt){if(c>bc||(c===bc&&key<best)){bc=c;best=key}}if(bc<2)break;
@@ -631,14 +697,13 @@ function vocabOf(merges){const v=new Map();for(let i=0;i<256;i++)v.set(i,[i]);me
 function encodeBPE(text,merges,lim){const rank=new Map();merges.slice(0,lim).forEach(([a,b],i)=>rank.set(a*65536+b,i));const out=[];
  for(const p of text.match(PAT)||[]){let ids=[...enc.encode(p)];while(ids.length>1){let bi=-1,br=Infinity;for(let i=0;i<ids.length-1;i++){const r=rank.get(ids[i]*65536+ids[i+1]);if(r!==undefined&&r<br){br=r;bi=i}}if(bi<0)break;
   const a=ids[bi],b=ids[bi+1],o=[];for(let i=0;i<ids.length;i++){if(i<ids.length-1&&ids[i]===a&&ids[i+1]===b){o.push(256+br);i++}else o.push(ids[i])}ids=o}out.push(...ids)}return out}
-window.__bpe={trainBPE,encodeBPE,vocabOf,PAT};
 const MERGES=trainBPE(CORPUS,120),VOC=vocabOf(MERGES);
 const sl=$("#i_merge"),inp=$("#bpeIn");sl.max=MERGES.length;
-const pal=["#ffd2c4","#ffb59e","#ffe8b8","#d9ecff","#e3f5d8","#f0dcff","#ffe0ec"];
+const pal=["#67e8f9","#a5b4fc","#c4b5fd","#f9a8d4","#7dd3fc","#99f6e4","#fbcfe8"];
 const show=b=>dec.decode(new Uint8Array(b)).replace(/ /g,"·").replace(/\n/g,"↵");
 function render(){const lim=+sl.value;$("#o_merge").textContent=lim;sl.style.setProperty("--p",(100*lim/sl.max)+"%");
  const ids=encodeBPE(inp.value,MERGES,lim),nb=enc.encode(inp.value).length;
- $("#bpeOut").innerHTML=ids.map((id,i)=>`<span style="background:${pal[id%pal.length]};color:#120d0b;animation-delay:${reduce?0:Math.min(i*6,400)}ms" title="id ${id}">${esc(show(VOC.get(id)))}</span>`).join("");
+ $("#bpeOut").innerHTML=ids.map((id,i)=>{const c=pal[id%pal.length];return`<span style="background:${c};box-shadow:0 0 10px ${c}55;animation-delay:${reduce?0:Math.min(i*6,400)}ms" title="id ${id}">${esc(show(VOC.get(id)))}</span>`}).join("");
  $("#bpeStats").innerHTML=[[fmt(nb),"bayt"],[fmt(ids.length),"token"],[(nb/Math.max(1,ids.length)).toFixed(2).replace(".",","),"bayt / token"],[fmt(256+lim+1),"sözlük boyutu"]].map(s=>`<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("");
  $("#bpeMerges").innerHTML=MERGES.slice(Math.max(0,lim-8),lim).reverse().map(([a,b],i)=>`<span>${esc(show(VOC.get(a)))} + ${esc(show(VOC.get(b)))} → ${esc(show(VOC.get(256+lim-1-i)))}</span>`).join("")||`<span>henüz birleştirme yok: her bayt bir token</span>`}
 sl.addEventListener("input",render);inp.addEventListener("input",render);
@@ -650,8 +715,10 @@ render();
 {
 const D=[["KökLM küçük",2885888,"bizim"],["KökLM 1B",1235814400,"bizim"],["KökLM 8B",8030261248,"bizim"],["DeepSeek-R1",671e9,"açık, 2025"],["Grok 4.8",2.5e12,"bildirilen"],["Qwen 3.8",3.5e12,"bildirilen"],["Eğitimdeki modeller",1e13,"bildirilen"],["İnsan beyni (sinaps)",1e14,"tahmin"]];
 const lo=6,hi=14,word=n=>n>=1e12?(n/1e12).toLocaleString("tr-TR",{maximumFractionDigits:1})+" T":n>=1e9?(n/1e9).toLocaleString("tr-TR",{maximumFractionDigits:2})+" B":(n/1e6).toLocaleString("tr-TR",{maximumFractionDigits:1})+" M";
-$("#scale").innerHTML=D.map(([a,n,t])=>`<div class="bar"><span>${a}<br><span class="tag2">${t}</span></span><span class="tr" style="background:var(--bg)"><i style="width:0;background:${t==="bizim"?"#ff4a1c":t==="tahmin"?"var(--ink)":"#ff9f7a"}" data-w="${((Math.log10(n)-lo)/(hi-lo)*100).toFixed(2)}"></i></span><span class="v">${word(n)}</span></div>`).join("");
-requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll("#scale i").forEach(i=>i.style.width=i.dataset.w+"%")));
+const box=$("#scale");
+box.innerHTML=D.map(([a,n,t])=>{const g=t==="bizim"?`linear-gradient(90deg,${C},${V})`:t==="tahmin"?`linear-gradient(90deg,${V},${P})`:`linear-gradient(90deg,#334155,#64748b)`;return`<div class="bar"><span>${a}<br><span class="tag2">${t}</span></span><span class="tr"><i style="width:0;background:${g};box-shadow:0 0 14px ${t==="bizim"?C:t==="tahmin"?P:"transparent"}" data-w="${((Math.log10(n)-lo)/(hi-lo)*100).toFixed(2)}"></i></span><span class="v">${word(n)}</span></div>`}).join("");
+const go=()=>box.querySelectorAll("i[data-w]").forEach((i,k)=>setTimeout(()=>i.style.width=i.dataset.w+"%",reduce?0:k*120));
+const io=new IntersectionObserver(es=>{if(es[0].isIntersecting){go();io.disconnect()}},{threshold:.2});io.observe(box);setTimeout(go,8000);
 }
 
 /* ---------- Testler ---------- */
@@ -664,13 +731,18 @@ const TS=[["Hugging Face Llama ile aynı çıktı","test_hf_llama_ile_ayni_logit
 ["Model öğreniyor","test_bir_egitim_adimi_kaybi_dusurur","Birkaç AdamW adımında kayıp düşer; CI'da 30 adımda 5,79 → 0,93."],
 ["BPE kayıpsız","test_gidis_donus_ve_sikistirma","Kodla, çöz: metin birebir geri gelir; Türkçe ve emoji dahil."],
 ["Gerçek ağırlık yükleme","test_hf_klasorden_yukle","safetensors dosyasından yüklenen model, kaynak modelle aynı çıktıyı verir."]];
-$("#tests").innerHTML=TS.map(t=>`<div class="test"><b>${t[0]}</b><code>${t[1]}</code><p class="small" style="margin:4px 0 0">${t[2]}</p></div>`).join("");
+$("#tests").innerHTML=TS.map((t,i)=>`<div class="glass test" data-r data-d="${i%4}"><b>${t[0]}</b><code>${t[1]}</code><p class="small" style="margin:8px 0 0">${t[2]}</p></div>`).join("");
 }
 
-/* ---------- Gezinme vurgusu ---------- */
+/* ---------- Kaydırınca beliren sahneler + sayaçlar ---------- */
 {
-const links=[...document.querySelectorAll(".links a")];const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+e.target.id))}})},{rootMargin:"-45% 0px -50% 0px"});
-links.forEach(a=>{const s=document.querySelector(a.getAttribute("href"));if(s)io.observe(s)});
+function countUp(el){if(reduce||el.dataset.done)return;el.dataset.done=1;const N=+el.dataset.count,t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/1400);el.textContent=fmt(N*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)}
+const rio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");rio.unobserve(e.target);
+ e.target.querySelectorAll("[data-count]").forEach(countUp)}}),{threshold:.12,rootMargin:"0px 0px -6% 0px"});
+document.querySelectorAll("[data-r]").forEach(el=>rio.observe(el));
+setTimeout(()=>document.querySelectorAll("[data-r]:not(.in)").forEach(el=>{if(el.getBoundingClientRect().top<innerHeight)el.classList.add("in")}),1500);
+const links=[...document.querySelectorAll(".links a")];const nio=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)links.forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+e.target.id))})},{rootMargin:"-45% 0px -50% 0px"});
+links.forEach(a=>{const s=document.querySelector(a.getAttribute("href"));if(s)nio.observe(s)});
 }
 }
 </script>
