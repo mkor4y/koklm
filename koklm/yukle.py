@@ -119,7 +119,21 @@ def hf_yukle(kaynak: str, dtype: torch.dtype = torch.bfloat16,
     yol = Path(kaynak)
     if not yol.exists():
         from huggingface_hub import snapshot_download
-        yol = Path(snapshot_download(kaynak, allow_patterns=["*.json", "*.safetensors"]))
+        try:
+            yol = Path(snapshot_download(kaynak, allow_patterns=["*.json", "*.safetensors"]))
+        except Exception as e:
+            m = str(e)
+            if "403" in m or "401" in m or "gated" in m.lower() or "restricted" in m.lower():
+                raise RuntimeError(
+                    f"'{kaynak}' indirilemedi: erişim izni yok (401/403).\n"
+                    "  1) Model sayfasında Meta'nın lisansını kabul et ve onay gelmesini bekle\n"
+                    "     (durum: https://huggingface.co/settings/gated-repos).\n"
+                    "  2) Token 'Read' türünde olsun; fine-grained ise\n"
+                    "     'public gated repos' izni açık olsun.\n"
+                    "  3) Onay beklemeden denemek için erişim onayı gerektirmeyen kopyayı kullan:\n"
+                    "     --hf unsloth/Llama-3.2-1B-Instruct"
+                ) from e
+            raise
     cfg = hf_config_cevir(json.loads((yol / "config.json").read_text()), isim=yol.name)
     sd: dict = {}
     for f in sorted(yol.glob("*.safetensors")):
