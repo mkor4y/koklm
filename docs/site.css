@@ -71,7 +71,7 @@ nav .in{display:flex;align-items:center;gap:16px;padding:10px max(5vw,16px)}
 .tabs button{all:unset;cursor:pointer;padding:7px 14px;border-radius:999px;font:600 13.5px Inter,sans-serif;color:var(--mute);border:1px solid var(--line);min-height:20px}
 .tabs button[aria-selected=true]{color:#05060f;background:var(--grad);border-color:transparent}
 .tabs button:focus-visible{outline:2px solid var(--c)}
-.flowfig{position:relative;height:240px}
+.flowfig{position:relative;height:340px}
 .flowfig svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .node{cursor:pointer}
 .node text{font-family:"Space Grotesk",sans-serif}
@@ -227,7 +227,7 @@ footer{padding:28px max(5vw,16px);display:flex;flex-wrap:wrap;gap:8px 24px;justi
 .js [data-r].in{opacity:1;transform:none}
 .js [data-r][data-d="1"]{transition-delay:.08s}.js [data-r][data-d="2"]{transition-delay:.16s}.js [data-r][data-d="3"]{transition-delay:.24s}
 @media(max-width:1000px){.links{display:none}}
-@media(max-width:900px){.hero .wrap,.sec-head,.detail,.calc,.cta-box,.anat,.live,.kvwrap,.cycle,.codex{grid-template-columns:minmax(0,1fr)}.ctrl{position:static}.road{grid-template-columns:repeat(2,minmax(0,1fr))}.flowfig{height:560px}.anatfig{height:700px}}
+@media(max-width:900px){.hero .wrap,.sec-head,.detail,.calc,.cta-box,.anat,.live,.kvwrap,.cycle,.codex{grid-template-columns:minmax(0,1fr)}.ctrl{position:static}.road{grid-template-columns:repeat(2,minmax(0,1fr))}.anatfig{height:700px}}
 @media(max-width:700px){.math,.split{grid-template-columns:minmax(0,1fr)}.bar{grid-template-columns:6.5em minmax(0,1fr) 8.2em}.scale .bar{grid-template-columns:8.5em minmax(0,1fr) 4.5em}.waffle{grid-template-columns:repeat(20,minmax(0,1fr));gap:2px}.hero{min-height:0}.memrow{grid-template-columns:minmax(0,1fr) 6em}.memrow .memstack{grid-column:1/-1;grid-row:2}.gh{display:none}.kpis b{font-size:19px}}
 @media(max-width:420px){.road{grid-template-columns:minmax(0,1fr)}.seg button{padding:6px 9px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}.js [data-r]{opacity:1;transform:none}}

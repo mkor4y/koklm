@@ -195,17 +195,52 @@ skor (1, ${c.H}, 8, 8)
 τ = 0,5 →  p = [ ${p2.map(v=>dec2(v,3)).join("  ")} ]</div><p>τ = 1 ve top-p = 0,9'da ilk iki token tutulur (${dec2(p1[0],3)} + ${dec2(p1[1],3)} = ${dec2(p1[0]+p1[1],3)} ≥ 0,9), üçüncüsü elenir, kalanlar yeniden normalize edilir.</p>`}}];
 const fig=$("#flowfig"),svg=$("#flowSvg"),det=$("#detail");vio.observe(fig);
 let pts=[],cur=0,auto=!reduce,t0=performance.now(),pathEl=null,lens=[],dot=null,halo=null,tab="denklem";
-function layout(){const W=fig.clientWidth,H=fig.clientHeight,n=ST.length;if(!W)return;const vert=W<700;
- pts=ST.map((s,i)=>vert?[W*(i%2?.66:.34),40+i*(H-80)/(n-1)]:[60+i*(W-120)/(n-1),H*.42+Math.sin(i*1.15)*H*.2]);
- let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=1;i<n;i++){const a=pts[i-1],b=pts[i];d+=vert?` C${a[0]},${(a[1]+b[1])/2} ${b[0]},${(a[1]+b[1])/2} ${b[0]},${b[1]}`:` C${(a[0]+b[0])/2},${a[1]} ${(a[0]+b[0])/2},${b[1]} ${b[0]},${b[1]}`}
- let s=`<defs><linearGradient id="fg" x1="0" x2="${vert?0:1}" y1="0" y2="${vert?1:0}"><stop offset="0" stop-color="${C}"/><stop offset=".5" stop-color="${V}"/><stop offset="1" stop-color="${P}"/></linearGradient><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
- s+=`<path d="${d}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10" stroke-linecap="round"/><path id="fp" d="${d}" fill="none" stroke="url(#fg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 12" opacity=".9">${reduce?"":`<animate attributeName="stroke-dashoffset" from="0" to="-28" dur="1s" repeatCount="indefinite"/>`}</path>`;
- ST.forEach((st,i)=>{const[x,y]=pts[i];const lx=vert?(i%2?x+34:x-34):x,ly=vert?y+5:y+(Math.sin(i*1.15)>0?-36:46),an=vert?(i%2?"start":"end"):"middle";
-  s+=`<g class="node" data-i="${i}" tabindex="0" role="button" aria-label="${st.ad}"><circle class="bg" cx="${x}" cy="${y}" r="24" fill="#0a0d1f" stroke="url(#fg)" stroke-width="2"/><circle class="ring" cx="${x}" cy="${y}" r="30" fill="none" stroke="${C}" stroke-width="2" opacity="0" filter="url(#gl)"/><text x="${x}" y="${y+6}" text-anchor="middle" font-size="18" font-weight="700" fill="#e8ebf7">${st.k}</text><text x="${lx}" y="${ly}" text-anchor="${an}" font-size="14" font-weight="600" fill="#cfd5ec">${st.ad}</text></g>`});
- s+=`<circle id="fh" r="22" fill="${C}" opacity=".3" filter="url(#gl)"/><circle id="fd" r="7" fill="#fff" filter="url(#gl)"/>`;
+const SHP=(k,c,r)=>({T:"(B, T)",E:`(T, ${fmt(c.d)})`,N:`(T, ${fmt(c.d)})`,A:`${c.H} Q · ${c.Hkv} K/V kafa`,"+":"h + Attn(h)",F:`${fmt(c.d)} → ${fmt(r.f)} → ${fmt(c.d)}`,"×":`${c.L} kez tekrar`,O:`(T, ${fmt(c.V)})`,p:"top-p örnekleme"}[k]);
+function glyph(k,x,y){let s="";const w="#e8ebf7";
+ if(k==="T")[-9,0,9].forEach((dx,i)=>s+=`<rect x="${x+dx-3.5}" y="${y-7+(i%2)*3}" width="7" height="11" rx="2" fill="${[C,V,P][i]}"/>`);
+ else if(k==="E"){for(let a=0;a<3;a++)for(let b=0;b<3;b++)s+=`<circle cx="${x-7+a*7}" cy="${y-7+b*7}" r="2.3" fill="${(a+b)%2?C:V}"/>`}
+ else if(k==="N"){[[-9,13],[-3,6],[3,10],[9,4]].forEach(([dx,h])=>s+=`<rect x="${x+dx-2}" y="${y+7-h}" width="4" height="${h}" rx="1" fill="${C}" opacity=".85"/>`);s+=`<line x1="${x-13}" x2="${x+13}" y1="${y-1}" y2="${y-1}" stroke="${P}" stroke-width="1.5" stroke-dasharray="2 2"/>`}
+ else if(k==="A"){for(let i=0;i<3;i++)for(let j=0;j<3;j++)s+=j<=i?`<rect x="${x-10+j*7}" y="${y-10+i*7}" width="6" height="6" rx="1.2" fill="${i===j?P:V}" opacity="${i===j?1:.75}"/>`:`<rect x="${x-10+j*7}" y="${y-10+i*7}" width="6" height="6" rx="1.2" fill="none" stroke="rgba(255,255,255,.3)"/>`}
+ else if(k==="+")s+=`<path d="M${x-9},${y}H${x+9}M${x},${y-9}V${y+9}" stroke="${P}" stroke-width="3" stroke-linecap="round"/>`;
+ else if(k==="F"){const L=[[-10,-5],[-10,5]],M2=[[0,-10],[0,-3.5],[0,3.5],[0,10]],R=[[10,-5],[10,5]];L.forEach(a=>M2.forEach(b=>s+=`<line x1="${x+a[0]}" y1="${y+a[1]}" x2="${x+b[0]}" y2="${y+b[1]}" stroke="${C}" stroke-opacity=".5"/>`));M2.forEach(a=>R.forEach(b=>s+=`<line x1="${x+a[0]}" y1="${y+a[1]}" x2="${x+b[0]}" y2="${y+b[1]}" stroke="${V}" stroke-opacity=".5"/>`));[...L,...R].forEach(p=>s+=`<circle cx="${x+p[0]}" cy="${y+p[1]}" r="2.3" fill="${w}"/>`);M2.forEach(p=>s+=`<circle cx="${x+p[0]}" cy="${y+p[1]}" r="2.3" fill="${C}"/>`)}
+ else if(k==="×")s+=`<path d="M${x+9},${y-3} A9,9 0 1 0 ${x+5},${y+7}" fill="none" stroke="${V}" stroke-width="2.5" stroke-linecap="round"/><path d="M${x+11},${y-9} L${x+9.5},${y-2} L${x+3},${y-4}" fill="none" stroke="${V}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+ else if(k==="O")[3,8,5,12,6].forEach((h,i)=>s+=`<rect x="${x-11+i*4.6}" y="${y+7-h}" width="3.4" height="${h}" rx="1" fill="${P}" opacity="${h===12?1:.6}"/>`);
+ else if(k==="p"){[[-8,8,.5],[0,15,1],[8,5,.5]].forEach(([dx,h,o])=>s+=`<rect x="${x+dx-3}" y="${y+8-h}" width="6" height="${h}" rx="1.5" fill="${o===1?P:C}" opacity="${o}"/>`);s+=`<circle cx="${x}" cy="${y-11}" r="2.4" fill="#fff"/>`}
+ return s}
+let parts=[],nodePts=[],glowEls=[];
+function layout(){const W=fig.clientWidth,n=ST.length;if(!W)return;const vert=W<700,H=vert?1000:390,c=cfg(),r=hesap(c,2048);if(fig.style.height!==H+"px")fig.style.height=H+"px";
+ const zone=i=>i<2?0:i<7?1:2,gapB=i=>zone(i);
+ if(vert){const x=Math.max(100,W*.32),u=(H-130)/(8+1.7);pts=ST.map((s,i)=>[x,72+(i+gapB(i)*.85)*u])}
+ else{const u=(W-100)/(8+1.2),y=H*.44;pts=ST.map((s,i)=>[50+(i+gapB(i)*.6)*u,y])}
+ nodePts=pts;
+ let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=1;i<n;i++)d+=` L${pts[i][0]},${pts[i][1]}`;
+ let s=`<defs><linearGradient id="fg" x1="0" x2="${vert?0:1}" y1="0" y2="${vert?1:0}"><stop offset="0" stop-color="${C}"/><stop offset=".5" stop-color="${V}"/><stop offset="1" stop-color="${P}"/></linearGradient><filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><marker id="fa" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="${V}"/></marker><pattern id="fgrid" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M16 0H0V16" fill="none" stroke="rgba(255,255,255,.04)"/></pattern></defs>`;
+ // bölgeler
+ const Z=[["Giriş",0,1,C],[`Transformer bloğu · × ${c.L}`,2,6,V],["Çıkış",7,8,P]];
+ Z.forEach(([t,a,b,col])=>{let x0,y0,x1,y1;if(vert){x0=12;x1=W-12;y0=pts[a][1]-58;y1=pts[b][1]+44}else{const u=(W-100)/9.2;x0=pts[a][0]-u*.46;x1=pts[b][0]+u*.46;y0=H*.44-112;y1=H*.44+168}
+  s+=`<rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" rx="18" fill="${col}" fill-opacity=".06" stroke="${col}" stroke-opacity=".35" stroke-dasharray="${a===2?"6 5":"0"}"/><rect x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" rx="18" fill="url(#fgrid)"/>`;
+  s+=vert?`<text x="${x1-14}" y="${y0+19}" text-anchor="end" font-size="12.5" font-weight="700" fill="${col}">${t}</text>`:`<text x="${x0+12}" y="${y0+20}" font-size="12.5" font-weight="700" fill="${col}">${t}</text>`});
+ // residual yayları ve tekrar oku
+ const P_=i=>pts[i];let r1,r2,lp;
+ if(vert){const x=P_(0)[0],xl=x-52,ya=(P_(1)[1]+P_(2)[1])/2;r1=`M${x},${ya} C${xl},${ya} ${xl},${P_(4)[1]} ${x-24},${P_(4)[1]}`;r2=`M${x-24},${P_(4)[1]+6} C${xl},${P_(4)[1]+6} ${xl},${P_(6)[1]} ${x-24},${P_(6)[1]}`;const xr=W-20,xe=W-54;lp=`M${xe},${P_(6)[1]} C${xr},${P_(6)[1]} ${xr},${P_(2)[1]} ${xe-4},${P_(2)[1]}`}
+ else{const y=H*.44,yt=y-86,xa=(P_(1)[0]+P_(2)[0])/2;r1=`M${xa},${y} C${xa},${yt} ${P_(4)[0]},${yt} ${P_(4)[0]},${y-24}`;r2=`M${P_(4)[0]+6},${y-24} C${P_(4)[0]+6},${yt+12} ${P_(6)[0]},${yt+12} ${P_(6)[0]},${y-24}`;const yb=y+150;lp=`M${P_(6)[0]+26},${y+12} C${P_(6)[0]+80},${yb} ${P_(2)[0]-80},${yb} ${P_(2)[0]-26},${y+14}`}
+ s+=`<path id="fr1" d="${r1}" fill="none" stroke="${P}" stroke-opacity=".55" stroke-width="2" stroke-dasharray="5 6"/><path id="fr2" d="${r2}" fill="none" stroke="${P}" stroke-opacity=".55" stroke-width="2" stroke-dasharray="5 6"/><path id="flp" d="${lp}" fill="none" stroke="${V}" stroke-opacity=".7" stroke-width="2" marker-end="url(#fa)"/>`;
+ if(vert){const xLoop=W-30;s+=`<text x="${P_(0)[0]-46}" y="${(P_(2)[1]+P_(3)[1])/2}" font-size="11.5" fill="#f9a8d4" text-anchor="middle" transform="rotate(-90 ${P_(0)[0]-46} ${(P_(2)[1]+P_(3)[1])/2})">residual</text><text x="${xLoop}" y="${(P_(3)[1]+P_(4)[1])/2}" font-size="12" font-weight="700" fill="#c4b5fd" text-anchor="middle" transform="rotate(90 ${xLoop} ${(P_(3)[1]+P_(4)[1])/2})" dy="-6">× ${c.L} blok</text>`}
+ else{s+=`<text x="${(P_(2)[0]+P_(4)[0])/2}" y="${H*.44-70}" font-size="11.5" fill="#f9a8d4" text-anchor="middle">residual</text><text x="${(P_(5)[0]+P_(6)[0])/2+10}" y="${H*.44-62}" font-size="11.5" fill="#f9a8d4" text-anchor="middle">residual</text><text x="${(P_(2)[0]+P_(6)[0])/2}" y="${H*.44+148}" font-size="12.5" font-weight="700" fill="#c4b5fd" text-anchor="middle">aynı blok ${c.L} kez, her seferinde farklı ağırlıklarla</text>`}
+ // ana yol
+ s+=`<path d="${d}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12" stroke-linecap="round"/><path id="fp" d="${d}" fill="none" stroke="url(#fg)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2 9" opacity=".95">${reduce?"":`<animate attributeName="stroke-dashoffset" from="0" to="-22" dur="1s" repeatCount="indefinite"/>`}</path>`;
+ // düğümler
+ ST.forEach((st,i)=>{const[x,y]=pts[i];const lx=vert?x+40:x,an=vert?"start":"middle",ly=vert?y-2:y+48,sy=vert?y+16:y+64;
+  s+=`<g class="node" data-i="${i}" tabindex="0" role="button" aria-label="${st.ad}"><circle class="gw" cx="${x}" cy="${y}" r="34" fill="${C}" opacity="0" filter="url(#gl)"/><circle class="bg" cx="${x}" cy="${y}" r="26" fill="#0a0d1f" stroke="url(#fg)" stroke-width="2"/><circle cx="${x}" cy="${y}" r="20" fill="none" stroke="rgba(255,255,255,.08)"/><circle class="ring" cx="${x}" cy="${y}" r="32" fill="none" stroke="${C}" stroke-width="2" opacity="0" filter="url(#gl)"/>${glyph(st.k,x,y)}<text x="${lx}" y="${ly}" text-anchor="${an}" font-size="14" font-weight="700" fill="#e8ebf7">${st.ad}</text><text x="${lx}" y="${sy}" text-anchor="${an}" font-size="11.5" fill="#8d95b5" font-family="JetBrains Mono, monospace">${esc(SHP(st.k,c,r))}</text></g>`});
+ s+=`<g id="fparts"></g><circle id="fh" r="24" fill="${C}" opacity=".3" filter="url(#gl)"/><circle id="fd" r="7" fill="#fff" filter="url(#gl)"/>`;
  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.innerHTML=s;pathEl=svg.querySelector("#fp");dot=svg.querySelector("#fd");halo=svg.querySelector("#fh");
- const total=pathEl.getTotalLength();lens=pts.map(p=>{let best=0,bd=1e9;for(let l=0;l<=total;l+=total/400){const q=pathEl.getPointAtLength(l),dd=(q.x-p[0])**2+(q.y-p[1])**2;if(dd<bd){bd=dd;best=l}}return best});
- mark();move(0)}
+ glowEls=[...svg.querySelectorAll(".gw")];
+ const total=pathEl.getTotalLength();lens=pts.map(p=>{let best=0,bd=1e9;for(let l=0;l<=total;l+=total/500){const q=pathEl.getPointAtLength(l),dd=(q.x-p[0])**2+(q.y-p[1])**2;if(dd<bd){bd=dd;best=l}}return best});
+ const fp=svg.querySelector("#fparts"),paths=[[pathEl,6,C,.0016],[svg.querySelector("#fr1"),2,P,.003],[svg.querySelector("#fr2"),2,P,.003],[svg.querySelector("#flp"),2,V,.0022]];
+ parts=[];paths.forEach(([el,k,col,sp])=>{const L=el.getTotalLength();for(let i=0;i<k;i++){const c2=document.createElementNS("http://www.w3.org/2000/svg","circle");c2.setAttribute("r",el===pathEl?4.5:3.5);c2.setAttribute("fill",col);c2.setAttribute("filter","url(#gl)");fp.appendChild(c2);parts.push({el:c2,path:el,L,t:i/k,sp,main:el===pathEl})}});
+ stepParts(0);mark();move(0)}
+function stepParts(dt){for(const p of parts){p.t=(p.t+p.sp*dt/16)%1;const q=p.path.getPointAtLength(p.t*p.L);p.el.setAttribute("cx",q.x);p.el.setAttribute("cy",q.y);p.x=q.x;p.y=q.y}
+ glowEls.forEach((g,i)=>{const[nx,ny]=nodePts[i];let m=0;for(const p of parts)if(p.main){const dd=Math.hypot(p.x-nx,p.y-ny);m=Math.max(m,1-dd/34)}g.setAttribute("opacity",(m*.55).toFixed(2))})}
 function mark(){svg.querySelectorAll(".node").forEach((g,j)=>{const on=j===cur;g.querySelector(".ring").setAttribute("opacity",on?1:0);g.querySelector(".bg").setAttribute("fill",on?"#2e1065":"#0a0d1f")})}
 function move(k){if(!pathEl||!lens.length)return;const a=lens[cur],b=lens[(cur+1)%ST.length];const l=cur===ST.length-1?a:a+(b-a)*k;const q=pathEl.getPointAtLength(l);dot.setAttribute("cx",q.x);dot.setAttribute("cy",q.y);halo.setAttribute("cx",q.x);halo.setAttribute("cy",q.y)}
 function body(s,c,r){if(tab==="ornek")return s.ornek(c,r);if(tab==="kod"){const k=KODM[s.kod];return k?`<p class="small"><code>${esc(k.dosya)}</code>, satır ${k.satir}. Vurgulu satırlar bu durağa ait.</p><pre class="code">${codeHTML(k,s.hl)}</pre>`:""}
@@ -216,9 +251,10 @@ function show(i){cur=i;const s=ST[i],c=cfg(),r=hesap(c,2048);mark();move(0);
 svg.addEventListener("click",e=>{const g=e.target.closest(".node");if(!g)return;auto=false;show(+g.dataset.i)});
 svg.addEventListener("keydown",e=>{const g=e.target.closest(".node");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();auto=false;show(+g.dataset.i)}});
 det.addEventListener("click",e=>{const b=e.target.closest(".tabs button");if(!b)return;auto=false;tab=b.dataset.t;show(cur)});
-onResize(fig,layout);show(0);onModel(()=>show(cur));
-function tick(t){if(auto&&isOn(fig)){const k=(t-t0)/4200;const pg=$("#pg");if(pg)pg.style.width=Math.min(100,k*100)+"%";move(Math.max(0,(k-.6)/.4));if(k>=1)show((cur+1)%ST.length)}else if(auto)t0=t-((t-t0)%4200);if(auto)requestAnimationFrame(tick)}
-if(auto)requestAnimationFrame(tick);
+onResize(fig,layout);show(0);onModel(()=>{layout();show(cur)});
+let lastT=0;
+function tick(t){const dt=lastT?Math.min(50,t-lastT):0;lastT=t;if(isOn(fig)){stepParts(dt);if(auto){const k=(t-t0)/4200;const pg=$("#pg");if(pg)pg.style.width=Math.min(100,k*100)+"%";move(Math.max(0,(k-.6)/.4));if(k>=1)show((cur+1)%ST.length)}}else if(auto)t0=t-((t-t0)%4200);requestAnimationFrame(tick)}
+if(!reduce)requestAnimationFrame(tick);
 }
 
 /* ================= Bir bloğun içi (anatomi) ================= */
