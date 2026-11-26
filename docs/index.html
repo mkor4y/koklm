@@ -29,7 +29,7 @@
 <p class="tag">Milyar parametrelik LLM'leri kökünden çözmek için sıfırdan yazdığım dil modeli.</p>
 <div class="count" id="heroCount">1.235.814.400</div>
 <div class="count-l" id="heroCountL">parametre · Llama 3.2 1B ile birebir aynı mimari</div>
-<div class="kpis"><div><b id="kL">16</b><span>transformer bloğu</span></div><div><b id="kN">131.072</b><span>FFN nöronu</span></div><div><b>34</b><span>test geçti</span></div></div>
+<div class="kpis"><div><b id="kL">16</b><span>transformer bloğu</span></div><div><b id="kN">131.072</b><span>FFN nöronu</span></div><div><b>36</b><span>test geçti</span></div></div>
 <div class="cta"><a class="btn pri" href="https://github.com/mkor4y/koklm">Kodu incele</a><a class="btn" href="#akis">Model içinde gez</a></div>
 </div>
 <div class="stage" id="stage" role="img" aria-label="Döndürülebilir 3B transformer yığını. Altta embedding ızgarası, ortada transformer blokları (mor: attention, camgöbeği: SwiGLU FFN), üstte çıkış halkası. Token'lar ışık olarak aşağıdan yukarı akar. Bir bloğa tıklayınca içi açılır.">
@@ -264,7 +264,7 @@ eğitim ≈ 6N FLOP / token</div><p>Residual'a yazan katmanlar √2L ile küçü
 </div></section>
 
 <section class="band deco" id="dogrulama"><div class="wrap">
-<div class="sec-head" data-r><div><div class="kicker">Doğrulama</div><h2>Her iddia <span class="gt">bir testle kanıtlı</span></h2></div><p class="lead">34 test, her push'ta GitHub Actions'ta Python 3.10 ve 3.12 üzerinde çalışır. En güçlüsü: aynı ağırlıklar verildiğinde KökLM, Hugging Face'in Llama uygulamasıyla aynı çıktıyı üretir.</p></div>
+<div class="sec-head" data-r><div><div class="kicker">Doğrulama</div><h2>Her iddia <span class="gt">bir testle kanıtlı</span></h2></div><p class="lead">36 test, her push'ta GitHub Actions'ta Python 3.10 ve 3.12 üzerinde çalışır. En güçlüsü: aynı ağırlıklar verildiğinde KökLM, Hugging Face'in Llama uygulamasıyla aynı çıktıyı üretir.</p></div>
 <div class="tests" id="tests"></div>
 </div></section>
 
