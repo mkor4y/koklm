@@ -619,17 +619,17 @@ const TS=[["Hugging Face Llama ile aynı çıktı","test_hf_llama_ile_ayni_logit
 ["BPE kayıpsız","test_gidis_donus_ve_sikistirma","Kodla, çöz: metin birebir geri gelir; Türkçe ve emoji dahil."],
 ["Gerçek ağırlık yükleme","test_hf_klasorden_yukle","safetensors dosyasından yüklenen model, kaynak modelle aynı çıktıyı verir."]];
 $("#tests").innerHTML=TS.map((t,i)=>`<div class="glass test" data-r data-d="${i%4}"><b>${t[0]}</b><code>${t[1]}</code><p class="small" style="margin:8px 0 0">${t[2]}</p></div>`).join("");
-const SY=[["02:04","Fikir","\"Kendi yapay zekâ modelimizi yapacağız.\" Hedef: büyük modellerin mimarisini matematiğiyle anlamak."],
-["02:12","İlk mimari, numpy ile","Llama tarzı ileri geçiş ve 1B / 8B parametre dökümü. Sayılar Meta'nınkiyle ilk denemede tuttu."],
-["02:21","PyTorch'a geçiş","GPU'ya hazır model; eğitim, veri hazırlama ve üretim betikleri."],
-["02:23","GitHub: mkor4y/koklm","KökLM adı kondu, MIT lisansıyla ilk push."],
-["02:30","v0.2.0","Python paketi, gerçek Llama ağırlıklarını yükleme, sıfırdan BPE ve GitHub Actions."],
-["02:35","Testler gerçek bir hata yakaladı","Yeni transformers sürümünün RoPE ayar biçimi okunmuyordu; düzeltildi. HF Llama ile aynı logit'ler."],
-["02:38","Uçtan uca eğitim CI'da","Tokenizer → veri → eğitim → devam → üretim; kayıp 5,79'dan 0,93'e."],
-["02:42","Üretim hatası düzeltildi","Yuvarlanmış sözlüğün fazla token'ları maskelendi."],
-["03:07","Tanıtım sitesi","Mimari, matematik, hesaplayıcı ve canlı BPE."],
-["03:42","Koyu tema ve 3B yığın","Nöral ağ arka planı, ışık olarak veri akışı."],
-["Sabah","Bu sürüm","Blok anatomisi, canlı attention, KV-cache, eğitim döngüsü, GPU belleği ve kod gezgini."]];
+const SY=[["Başlangıç","Fikir","\"Kendi yapay zekâ modelimizi yapacağız.\" Hedef: büyük modellerin mimarisini matematiğiyle anlamak."],
+["Aşama 1","İlk mimari, numpy ile","Llama tarzı ileri geçiş ve 1B / 8B parametre dökümü. Sayılar Meta'nınkiyle ilk denemede tuttu."],
+["Aşama 2","PyTorch'a geçiş","GPU'ya hazır model; eğitim, veri hazırlama ve üretim betikleri."],
+["Aşama 3","GitHub: mkor4y/koklm","KökLM adı kondu, MIT lisansıyla ilk push."],
+["Aşama 4","v0.2.0","Python paketi, gerçek Llama ağırlıklarını yükleme, sıfırdan BPE ve GitHub Actions."],
+["Aşama 5","Testler gerçek bir hata yakaladı","Yeni transformers sürümünün RoPE ayar biçimi okunmuyordu; düzeltildi. HF Llama ile aynı logit'ler."],
+["Aşama 6","Uçtan uca eğitim CI'da","Tokenizer → veri → eğitim → devam → üretim; kayıp 5,79'dan 0,93'e."],
+["Aşama 7","Üretim hatası düzeltildi","Yuvarlanmış sözlüğün fazla token'ları maskelendi."],
+["Aşama 8","Tanıtım sitesi","Mimari, matematik, hesaplayıcı ve canlı BPE."],
+["Aşama 9","Koyu tema ve 3B yığın","Nöral ağ arka planı, ışık olarak veri akışı."],
+["Şimdi","Bu sürüm","Blok anatomisi, canlı attention, KV-cache, eğitim döngüsü, GPU belleği ve kod gezgini."]];
 $("#story").innerHTML=SY.map((s,i)=>`<li class="glass" data-r data-d="${i%2}"><time>${s[0]}</time><b>${esc(s[1])}</b><span>${esc(s[2])}</span></li>`).join("");
 }
 
